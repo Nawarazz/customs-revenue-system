@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ne"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>भन्सार राजस्व प्रणाली · Customs Revenue System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--ink:#1c2b36;--mut:#5d6d79;--bg:#f2f5f7;--card:#fff;--line:#d9e1e6;--acc:#b3243b;--acc2:#1f5f7a;--ok:#1b7a4b}
+@media (prefers-color-scheme:dark){:root{--ink:#e6edf1;--mut:#9fb0bb;--bg:#101a21;--card:#17242d;--line:#2a3a45;--acc:#ef6b80;--acc2:#6cb7d4;--ok:#5fd29a}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 "Noto Sans Devanagari","Mukta","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:12px 22px;background:var(--card);border-bottom:3px solid var(--acc);display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+h1{font:700 19px Georgia,serif;margin:0}nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px 22px;background:var(--card);border-bottom:1px solid var(--line)}
+nav button{background:transparent;color:var(--ink);border:1px solid transparent;padding:6px 12px;border-radius:4px;cursor:pointer;font:inherit}nav button.on{border-color:var(--acc);color:var(--acc);font-weight:700}
+main{max-width:1200px;margin:0 auto;padding:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:14px}
+h2{font:700 16px Georgia,serif;margin:0 0 8px}label{font-size:13px;color:var(--mut);display:block;margin-bottom:2px}
+input,select,textarea,button.b{font:inherit;padding:6px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
+button.b{cursor:pointer;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}button.g{background:transparent;color:var(--ink);border-color:var(--line)}
+textarea{width:100%;height:110px;font:13px Consolas,monospace}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}.kpi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc2);padding:10px;border-radius:6px;font-size:13px;color:var(--mut)}.kpi b{display:block;font:700 20px Georgia,serif;color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:5px 7px;border:1px solid var(--line);text-align:left}th{background:var(--bg)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.t td{font-weight:700;background:var(--bg)}
+.wrap{overflow-x:auto}.sec{display:none}.sec.on{display:block}.msg{font-size:14px;color:var(--ok);margin-top:6px}.err{color:var(--acc)}
+td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canvas{max-height:300px}
+.pdfwrap{--ink:#000;--bg:#eee;--line:#999;--card:#fff}.pdfwrap table{font-size:11px}
+@media print{#rep table,#bank table{font-size:10px}header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0}th,td{border-color:#999}}
+</style></head><body>
+<header><h1>भन्सार राजस्व प्रणाली <span style="font:13px sans-serif;color:var(--mut)" id="ofcName"></span></h1><div class="noprint"><select id="unit" title="Display unit"><option value="1">Rs</option><option value="1000">Rs thousand (हजार)</option><option value="100000">Rs lakh (लाख)</option></select> <button class="b g" id="exp">Export backup</button> <button class="b g" onclick="bk.click()">Restore backup</button><input type="file" id="bk" accept=".json" hidden></div></header>
+<nav id="nav"></nav>
+<main>
+<section class="sec" id="s_dash"><div class="row"><div><label>आर्थिक वर्ष (starts)</label><select id="dfy"></select></div></div><div class="kpis" id="kp"></div>
+<div class="card"><h2>Monthly collection vs target</h2><canvas id="c1"></canvas></div><div class="card"><h2>Daily collection, latest month</h2><canvas id="c2"></canvas></div></section>
+
+<section class="sec" id="s_entry"><div class="card"><h2>Daily entry (Jasper 108)</h2>
+<div class="row"><div><label>Date (BS) YYYY.MM.DD</label><input id="ed" size="11"></div><button class="b g" id="eprev">◀</button><button class="b g" id="enext">▶</button><button class="b" id="esave">Save day</button><span class="msg" id="emsg"></span></div>
+<div class="wrap"><table id="egrid"></table></div></div>
+<div class="card"><h2>Paste from Jasper / Excel</h2><p style="margin:0 0 8px;color:var(--mut)">Lines like <code>IM&#9;18357744&#9;297083&#9;290</code> (head code or short name, then one amount per office) fill the grid. A single column of 15 numbers pastes in Jasper order (IM, EX, CSF, CSF_EX, ARF, ECS, RCF, RDF, IFT, AIT, HHT, IDP, VAT, LUF, GT) into the office chosen below. CVF is added to IM.</p>
+<div class="row"><div><label>Office for single-column paste</label><select id="pof"></select></div></div><textarea id="pp"></textarea><button class="b" id="pgo" style="margin-top:6px">Fill grid</button></div></section>
+
+<section class="sec" id="s_daily"><div class="row noprint"><div><label>Date</label><input id="rd" size="11"></div><button class="b g" id="rprev">◀</button><button class="b g" id="rnext">▶</button><div><label>Page</label><select id="ro"><option value="p">A4 Portrait</option><option value="l">A4 Landscape</option></select></div><button class="b" id="rprint">Print A4</button><button class="b" id="rpdf">Download PDF</button><button class="b" id="rxl">Download Excel</button></div><div class="card" id="rep"></div></section>
+<section class="sec" id="s_bank"><div class="row noprint"><div><label>Date</label><input id="bd" size="11"></div><div><label>Letter no. (च.नं.)</label><input id="bno" size="8"></div><button class="b" id="bprint">Print A4</button><button class="b" id="bpdf">Download PDF</button><button class="b" id="bxl">Download Excel</button></div><div class="card" id="bank"></div></section>
+<section class="sec" id="s_month"><div class="row"><div><label>आर्थिक वर्ष</label><select id="mfy"></select></div><button class="b noprint" onclick="print()">Print</button></div><div class="card"><div class="wrap" id="mon"></div></div></section>
+<section class="sec" id="s_tgt"><div class="card"><h2>Targets (Rs thousand) and month lengths</h2><div class="row"><div><label>आर्थिक वर्ष (fiscal year)</label><select id="tfy"></select></div></div><p style="margin:0 0 8px;color:var(--mut)">Paste rows from your target sheet: head code then 12 monthly values (Shrawan to Ashadh), or type directly.</p><textarea id="tp" style="height:70px"></textarea><div class="row" style="margin-top:6px"><button class="b" id="tgo">Load pasted targets</button><button class="b g" id="tsave">Save table</button><span class="msg" id="tmsg"></span></div><div class="wrap"><table id="tt"></table></div></div></section>
+<section class="sec" id="s_set"><div class="card"><h2>Office and sub-offices</h2><div class="row"><div><label>Office name</label><input id="on" size="34"></div><div><label>Office address</label><input id="oad" size="34"></div></div><div class="row"><div><label>Bank name (for bank letter)</label><input id="bn" size="34"></div><div><label>Bank branch / address</label><input id="ba" size="34"></div></div><div class="wrap"><table id="ot"></table></div><div class="row" style="margin-top:8px"><button class="b g" id="oadd">Add sub-office</button><button class="b" id="osave">Save</button></div></div>
+<div class="card"><h2>Fiscal years (आर्थिक वर्ष)</h2><p style="margin:0 0 8px;color:var(--mut)">Each fiscal year runs Shrawan to Ashadh and has its own targets and month lengths (set in the Targets tab). A year is also created automatically when you save or import data dated in it.</p><div class="wrap"><table id="ft"></table></div><div class="row" style="margin-top:8px"><div><label>Start year (BS), e.g. 2083 for 2083/84</label><input id="fya" size="6"></div><label style="display:flex;gap:6px;align-items:center;margin:0 0 6px"><input type="checkbox" id="fyc" checked style="width:auto"> copy targets from previous year</label><button class="b" id="fyadd">Add fiscal year</button><span class="msg" id="fmsg"></span></div></div>
+<div class="card"><h2>Revenue codes and heads</h2><p style="margin:0 0 8px;color:var(--mut)">Add, rename or reorder revenue heads. The order here is the order in the entry grid and reports. Changing a code does not move amounts already saved under the old code.</p><div class="wrap"><table id="ht"></table></div><div class="row" style="margin-top:8px"><button class="b g" id="hadd">Add revenue head</button><button class="b" id="hsave">Save heads</button><span class="msg" id="hmsg"></span></div></div>
+<div class="card"><h2>Import from Excel</h2><p style="margin:0 0 8px;color:var(--mut)">Choose your workbook. The sheet <b>108_Entry</b> (Date, RevHead, name, office columns) is read; existing dates are overwritten. A <b>Deposit</b> sheet is read too if present.</p><input type="file" id="xf" accept=".xlsx,.xls,.csv"><div class="msg" id="xmsg"></div></div>
+<div class="card"><button class="b g" id="wipe">Clear all data</button></div></section>
+</main>
+<script>
+const MN=['श्रावण','भाद्र','असोज','कार्तिक','मंसिर','पुष','माघ','फाल्गुण','चैत्र','बैशाख','जेष्ठ','आषाढ'],MNUM=[4,5,6,7,8,9,10,11,12,1,2,3];
+const DEF_HEADS=[[11511,'IM','भन्सार महशुल - आयात'],[11521,'EX','भन्सार महशुल - निर्यात'],[11562,'CSF','भन्सार सम्वन्धी अन्य आय'],[11522,'CSF_EX','निर्यात सेवा शुल्क'],[11561,'ARF','कृषि सुधार शुल्क'],[11422,'ECS','अन्त:शुल्क आयात'],[11453,'RCF','सडक मर्मत तथा सुधार दस्तुर'],[11454,'RDF','सडक निर्माण तथा संभार कर'],[11455,'IFT','पूर्वाधार कर'],[11114,'AIT','कृषि आयमा लाग्ने कर'],[11424,'HHT','स्वास्थ्य जोखिम कर बैदेशिक उत्पादन'],['IDP','IDP','IDP'],[33312,'VAT','मु.अ.कर - आयात'],[11412,'LUF','विलासिता शुल्क'],[11515,'GT','हरित कर'],[11111,'','एकलौटी फर्म तथा व्यक्तिगत आयमा लाग्ने कर'],[11113,'','पूँजीगत लाभकर'],[11115,'','आकस्मिक लाभकर (व्यक्तिगत)'],[14229,'','अन्य प्रशासनिक सेवा शुल्क'],[14313,'','धरौटी सदरस्याह'],[15111,'','बेरुजु'],[14212,'','सरकारी सम्पत्तिको विक्रिबाट प्राप्त रकम'],[11452,'','वस्तुको उपयोग तथा उपयोगको अनुमतिमा लाग्ने कर'],[11123,'','निकायको मुनाफामा लाग्ने कर'],[33331,'','अन्त:शुल्क सूर्तिजन्य पदार्थ'],[11462,'','स्वास्थ्य जोखिम कर आयात'],[33313,'','मु.अ.कर - वस्तु विक्रि र वितरण']].map(h=>({code:String(h[0]),abbr:h[1],name:h[2]}));
+const JAS=['11511','11521','11562','11522','11561','11422','11453','11454','11455','11114','11424','IDP','33312','11412','11515'];
+const EXTRA={'IM TOTAL':'11511','EX TOTAL':'11521','CVF':'11511'};const H=()=>S.heads.filter(h=>h.code);
+function al(x){const u=String(x==null?'':x).trim().toUpperCase();if(!u)return null;if(EXTRA[u])return EXTRA[u];const h=H().find(h=>h.code.toUpperCase()===u||(h.abbr&&h.abbr.toUpperCase()===u));return h?h.code:null}
+const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+const KEY='customs_rev_v2';
+const DEFMD=[31,31,31,30,29,30,29,30,30,31,31,32];
+const def=()=>({unit:1000,heads:DEF_HEADS.map(h=>({...h})),office:'',address:'',bank:'',bankAddr:'',offices:[{code:'OFF01',name:''}],E:{},D:{},fys:{2082:{mdays:[...DEFMD],T:{}}}});
+let S;try{S=Object.assign(def(),JSON.parse(localStorage.getItem(KEY)))}catch(e){S=def()}
+const UN={1:'रु.',1000:'रु. हजारमा',100000:'रु. लाखमा'};const ul=()=>UN[+S.unit||1];
+const fu=v=>{if(v==null||v==='')return '';const u=+S.unit||1;return Number(v/u).toLocaleString('en-IN',{minimumFractionDigits:u>1?2:0,maximumFractionDigits:u>1?2:0})};const nu=v=>Math.round((v||0)/(+S.unit||1)*100)/100;
+const OF=()=>S.office||'(set office name in Settings)';const AD=()=>S.address?'<br>'+S.address:'';
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id),fmt=n=>Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0}),fk=n=>Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const sum=a=>(a||[]).reduce((s,v)=>s+(+v||0),0);
+function nd(v){if(v instanceof Date)return null;const m=String(v==null?'':v).trim().match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);return m?`${m[1]}.${m[2].padStart(2,'0')}.${m[3].padStart(2,'0')}`:null}
+const dates=()=>Object.keys(S.E).sort();
+const fyStart=d=>+d.slice(0,4)-(+d.slice(5,7)<4?1:0);
+const fyRange=y=>[y+'.04.00',(y+1)+'.03.99'];
+const fyList=()=>{const s=new Set([...Object.keys(S.fys).map(Number),...dates().map(fyStart)]);return [...s].filter(Boolean).sort((a,b)=>a-b)};
+const fyLbl=y=>`${y}/${String(y+1).slice(2)}`;
+function ensureK(y){if(!S.fys[y]){const ks=Object.keys(S.fys).map(Number).sort((a,b)=>a-b),p=S.fys[ks.filter(k=>k<y).pop()||ks[0]];S.fys[y]={mdays:p?[...p.mdays]:[...DEFMD],T:{}}}return S.fys[y]}
+const ensureFY=d=>ensureK(fyStart(d));
+const mIdx=d=>MNUM.indexOf(+d.slice(5,7));
+function ingest(rowsIn){ // rowsIn: arrays [date, head, name, ...office amounts]
+  const batch={};let n=0;
+  rowsIn.forEach(r=>{const d=nd(r[0]);if(!d)return;
+    const code=al(r[2])||al(r[1]);if(!code)return;
+    const k=d+'|'+code;const a=batch[k]=batch[k]||{d,code,v:[]};
+    for(let i=0;i<S.offices.length;i++)a.v[i]=(a.v[i]||0)+(parseFloat(String(r[3+i]).replace(/,/g,''))||0);n++});
+  Object.values(batch).forEach(a=>{ensureFY(a.d);(S.E[a.d]=S.E[a.d]||{})[a.code]=S.offices.map((_,i)=>a.v[i]||0)});
+  save();return n}
+function ingestDep(rows){let n=0;rows.forEach(r=>{const d=nd(r[2])||nd(r[0]);if(!d)return;const v=[3,4,5,6,7].slice(0,S.offices.length).map(i=>parseFloat(r[i])||0);if(sum(v)||S.D[d]){S.D[d]=v;n++}});save();return n}
+// ---- calculations
+function calc(d){const [a,b]=fyRange(fyStart(d)),ym=d.slice(0,7);const out={};
+  H().forEach(h=>out[h.code]={today:0,mPrev:0,last:0,fy:0});
+  dates().forEach(x=>{if(x<a||x>b||x>d)return;const e=S.E[x];Object.keys(e).forEach(c=>{const v=sum(e[c]),o=out[c];if(!o)return;o.fy+=v;if(x===d)o.today+=v;else if(x.slice(0,7)===ym)o.mPrev+=v;else o.last+=v})});return out}
+function tgt(y,mi){let t=0;const T=(S.fys[y]||{T:{}}).T;H().forEach(h=>{t+=(T[h.code]||[])[mi]||0});return t}
+const tgtFY=y=>MN.reduce((s,_,i)=>s+tgt(y,i),0);
+// ---- UI
+const TABS=[['dash','ड्यासबोर्ड Dashboard'],['entry','दैनिक प्रविष्टि Entry'],['daily','दैनिक टिपोट Daily report'],['bank','बैंक पत्र Bank letter'],['month','मासिक Monthly'],['tgt','लक्ष्य Targets'],['set','सेटिङ Settings']];
+$('nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
+let cur='dash';function go(t){cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({dash,entry,daily,bank,month,tgt:tgtUI,set:setUI})[t]()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.t));
+const last=()=>dates().pop()||(fyList().pop()+'.04.01');
+function shift(d,k){const ds=dates();let i=ds.indexOf(d);if(i<0){return k>0?ds.find(x=>x>d)||d:[...ds].reverse().find(x=>x<d)||d}return ds[Math.min(ds.length-1,Math.max(0,i+k))]}
+function opts(el,arr,sel){el.innerHTML=arr.map(a=>`<option value="${a[0]}" ${a[0]==sel?'selected':''}>${a[1]}</option>`).join('')}
+let ch1,ch2;
+function dash(){const ys=fyList();opts($('dfy'),ys.map(y=>[y,fyLbl(y)]),$('dfy').value||ys[ys.length-1]);
+  const y=+$('dfy').value,[a,b]=fyRange(y),mo=Array(12).fill(0);const ds=dates().filter(x=>x>=a&&x<=b);
+  ds.forEach(x=>{mo[mIdx(x)]+=sum(Object.values(S.E[x]).map(sum))});
+  const tg=MN.map((_,i)=>tgt(y,i)*1000),tot=sum(mo),T=sum(tg);
+  $('kp').innerHTML=[[`वार्षिक लक्ष्य FY target (${ul()})`,fu(T)],[`असुली Collected (${ul()})`,fu(tot)],['प्रतिशत Achievement',T?(tot/T*100).toFixed(2)+'%':'–'],['Latest date',ds.length?ds[ds.length-1]:'–']].map(x=>`<div class="kpi">${x[0]}<b>${x[1]}</b></div>`).join('');
+  const css=getComputedStyle(document.documentElement);if(ch1)ch1.destroy();
+  ch1=new Chart($('c1'),{type:'bar',data:{labels:MN,datasets:[{label:'Collected ('+ul()+')',data:mo.map(nu),backgroundColor:css.getPropertyValue('--acc2')},{type:'line',label:'Target',data:tg.map(nu),borderColor:css.getPropertyValue('--acc'),tension:.2}]},options:{responsive:true}});
+  const lm=ds.length?ds[ds.length-1].slice(0,7):null,dd=ds.filter(x=>x.slice(0,7)===lm);if(ch2)ch2.destroy();
+  ch2=new Chart($('c2'),{type:'line',data:{labels:dd.map(x=>x.slice(8)),datasets:[{label:(lm||'')+' ('+ul()+')',data:dd.map(x=>nu(sum(Object.values(S.E[x]).map(sum)))),borderColor:css.getPropertyValue('--acc'),tension:.2}]},options:{responsive:true}})}
+$('dfy').onchange=dash;
+function entry(){if(!$('ed').value)$('ed').value=last();$('ed').onchange=entry;opts($('pof'),S.offices.map((o,i)=>[i,o.code]),0);
+  const d=nd($('ed').value);if(!d)return;$('ed').value=d;const e=S.E[d]||{};
+  $('egrid').innerHTML='<tr><th>Code</th><th>Head</th>'+S.offices.map(o=>`<th class="n">${o.code}<br>${o.name}</th>`).join('')+'<th class="n">Total</th></tr>'+
+   H().map(h=>`<tr><td>${h.code}</td><td>${h.abbr?h.abbr+' · ':''}${h.name}</td>`+S.offices.map((_,i)=>`<td><input data-c="${h.code}" data-i="${i}" value="${(e[h.code]||[])[i]||''}"></td>`).join('')+`<td class="n" id="tt_${h.code}">${fmt(sum(e[h.code]))}</td></tr>`).join('')+
+   '<tr class="t"><td></td><td>बैंक दाखिला Bank deposit</td>'+S.offices.map((_,i)=>`<td><input data-dep="${i}" value="${(S.D[d]||[])[i]||''}"></td>`).join('')+'<td></td></tr>'}
+function grid(){const e={};document.querySelectorAll('#egrid input[data-c]').forEach(i=>{(e[i.dataset.c]=e[i.dataset.c]||[])[+i.dataset.i]=parseFloat(String(i.value).replace(/,/g,''))||0});return e}
+$('esave').onclick=()=>{const d=nd($('ed').value);if(!d){$('emsg').textContent='Enter a date like 2082.04.01';return}
+  const g=grid(),c={};Object.keys(g).forEach(k=>{if(sum(g[k]))c[k]=S.offices.map((_,i)=>g[k][i]||0)});
+  ensureFY(d);if(Object.keys(c).length)S.E[d]=c;else delete S.E[d];
+  const dep=[...document.querySelectorAll('#egrid input[data-dep]')].map(i=>parseFloat(i.value)||0);if(sum(dep))S.D[d]=dep;else delete S.D[d];
+  save();$('emsg').textContent=`Saved ${d}. Total Rs ${fmt(sum(Object.values(c).map(sum)))}`;entry()};
+$('eprev').onclick=()=>{$('ed').value=shift(nd($('ed').value)||last(),-1);entry()};$('enext').onclick=()=>{$('ed').value=shift(nd($('ed').value)||last(),1);entry()};
+$('pgo').onclick=()=>{const lines=$('pp').value.split(/\r?\n/).map(l=>l.split(/\t|\s{2,}/).map(s=>s.trim()).filter(Boolean)).filter(l=>l.length);
+  const num=s=>parseFloat(String(s).replace(/,/g,''));const set=(code,i,v)=>{const el=document.querySelector(`#egrid input[data-c="${code}"][data-i="${i}"]`);if(el)el.value=(num(el.value)||0)+v||''; };
+  document.querySelectorAll('#egrid input[data-c]').forEach(i=>{});
+  const o=+$('pof').value;const singles=lines.filter(l=>l.length===1&&!isNaN(num(l[0])));
+  lines.forEach(l=>{const c=al(l[0]);if(c&&l.length>1)l.slice(1).forEach((v,i)=>{if(i<S.offices.length&&!isNaN(num(v)))set(c,i,num(v))})});
+  singles.forEach((l,k)=>{if(JAS[k])set(JAS[k],o,num(l[0]))});$('emsg').textContent='Grid filled. Check totals, then Save day.'};
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.c){const g=grid()[t.dataset.c];$('tt_'+t.dataset.c).textContent=fmt(sum(g))}});
+let LD,LB;
+const cellv=(v,k)=>v==null?'':k==='p'?(isFinite(v)?v.toFixed(2):'–'):fu(v),rawv=(v,k)=>v==null?'':k==='p'?(isFinite(v)?+v.toFixed(2):''):nu(v);
+function daily(){const d=nd($('rd').value)||last();$('rd').value=d;$('rd').onchange=daily;const R=calc(d),mi=mIdx(d),day=+d.slice(8),fy0=fyStart(d),md=((S.fys[fy0]||{}).mdays||DEFMD)[mi]||30,tm=tgt(fy0,mi)*1000,all=tgtFY(fy0)*1000;
+  const T=[0,0,0,0,0],data=[];
+  H().forEach(h=>{const r=R[h.code];if(!r||!(r.fy||r.today))return;const mt=r.mPrev+r.today,row=[r.mPrev,r.today,mt,r.last,mt+r.last];row.forEach((v,k)=>T[k]+=v);data.push([data.length+1,h.code,h.name,...row])});
+  const colT=T[2],fyc=T[4],proj=tm&&day?(colT/day*md)/tm*100:0;
+  const sm=[['लक्ष्य Target',tm,all,'u'],['असुली Collected',colT,fyc,'u'],[colT-tm<0?'असुल हुन बाँकी':'बढी असुल',colT-tm,fyc-all,'u'],['असुली प्रतिशत %',tm?colT/tm*100:NaN,all?fyc/all*100:NaN,'p'],['महिनाको अनुमानित %',proj,null,'p'],['प्रति दिन लक्ष्य',tm/md,null,'u']];
+  const hd=['सि.नं.','राजस्व शिर्षक','राजस्वको विवरण',`${d.slice(0,7)}.${String(day-1).padStart(2,'0')} सम्म`,`${d} को`,`${d} सम्मको`,'गत महिनासम्मको','कुल असुली'];
+  const head=['नेपाल सरकार','अर्थ मन्त्रालय, भन्सार विभाग',OF(),S.address||'','राजस्व असुलीको दैनिक टिपोट · मिति '+d];
+  LD={d,aoa:[...head.map(x=>[x]),['रकम: '+ul()],[],['',`चालु महिना (${ul()})`,`आर्थिक वर्ष (${ul()})`],...sm.map(r=>[r[0],rawv(r[1],r[3]),rawv(r[2],r[3])]),[],hd,...data.map(r=>r.map((v,i)=>i<3?v:nu(v))),['कुल जम्मा','','',...T.map(nu)]]};
+  $('rep').innerHTML=`<div class="ctr"><b>${head[0]}<br>${head[1]}<br>${OF()}</b>${AD()}<br>${head[4]}<br><small>रकम: ${ul()}</small></div>
+  <div class="wrap"><table style="margin:10px 0"><tr><th></th><th>चालु महिना (${ul()})</th><th>आर्थिक वर्ष (${ul()})</th></tr>${sm.map(r=>`<tr><td>${r[0]}</td><td class="n">${cellv(r[1],r[3])}</td><td class="n">${cellv(r[2],r[3])}</td></tr>`).join('')}</table></div>
+  <div class="wrap"><table><tr>${hd.map((x,i)=>`<th class="${i>2?'n':''}">${x}</th>`).join('')}</tr>${data.map(r=>`<tr>${r.map((v,i)=>`<td class="${i>2?'n':''}">${i>2?fu(v):v}</td>`).join('')}</tr>`).join('')}<tr class="t"><td colspan="3">कुल जम्मा (${ul()})</td>${T.map(v=>`<td class="n">${fu(v)}</td>`).join('')}</tr></table></div>`}
+$('rprev').onclick=()=>{$('rd').value=shift(nd($('rd').value)||last(),-1);daily()};$('rnext').onclick=()=>{$('rd').value=shift(nd($('rd').value)||last(),1);daily()};
+function bank(){const d=nd($('bd').value)||last();$('bd').value=d;$('bd').onchange=bank;$('bno').oninput=bank;const e=S.E[d]||{};const O=S.offices.length;const T=Array(O).fill(0),data=[];
+  H().filter(h=>e[h.code]&&sum(e[h.code])).forEach(h=>{const v=S.offices.map((_,k)=>e[h.code][k]||0);v.forEach((x,k)=>T[k]+=x);data.push([data.length+1,h.code,h.name,...v,sum(v)])});
+  const dep=S.offices.map((_,k)=>(S.D[d]||[])[k]||0);
+  const hd=['सि.नं.','बजेट संकेत','शिर्षक',...S.offices.map(o=>(o.code+' '+o.name).trim()),`कुल जम्मा (${ul()})`];
+  const top=['नेपाल सरकार','अर्थ मन्त्रालय','भन्सार विभाग',OF(),S.address||''],to=[S.bank||'(set bank name in Settings)',S.bankAddr||''],para=`यस कार्यालयबाट मिति ${d} मा असुली गरिएको राजस्व तपशिल बमोजिम राजस्व खातामा जम्मा गरिदिनुहुन अनुरोध छ ।`;
+  LB={d,aoa:[...top.map(x=>[x]),[],['पत्रसंख्या: '+($('bno').value||'')+' च.नं.','','मिति: '+d],[],...to.map(x=>[x]),[],['विषय: राजस्व जम्मा गरिदिने सम्बन्धमा ।'],[para],['रकम: '+ul()],hd,...data.map(r=>r.map((v,i)=>i<3?v:nu(v))),['जम्मा','','',...T.map(nu),nu(sum(T))],['बैंक दाखिला Bank deposit','','',...dep.map(nu),nu(sum(dep))]]};
+  $('bank').innerHTML=`<b>${top[0]}<br>${top[1]}<br>${top[2]}<br>${OF()}</b>${AD()}<p>पत्रसंख्या: ${$('bno').value||''} च.नं. <span style="float:right">मिति: ${d}</span></p><p>${to[0]}${to[1]?'<br>'+to[1]:''}</p><p><b>विषय: राजस्व जम्मा गरिदिने सम्बन्धमा ।</b></p><p>${para}</p>
+  <div class="wrap"><table><tr>${hd.map((x,i)=>`<th class="${i>2?'n':''}">${x}</th>`).join('')}</tr>${data.map(r=>`<tr>${r.map((v,i)=>`<td class="${i>2?'n':''}">${i>2?fu(v):v}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${hd.length}">No data for this date.</td></tr>`}<tr class="t"><td colspan="3">जम्मा</td>${T.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(T))}</td></tr><tr><td colspan="3">बैंक दाखिला Bank deposit</td>${dep.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(dep))}</td></tr></table></div>`}
+function month(){const ys=fyList();opts($('mfy'),ys.map(y=>[y,fyLbl(y)]),$('mfy').value||ys[ys.length-1]);$('mfy').onchange=month;
+  const y=+$('mfy').value,[a,b]=fyRange(y),M=MN.map(()=>({}));const used=new Set();
+  dates().filter(x=>x>=a&&x<=b).forEach(x=>Object.keys(S.E[x]).forEach(c=>{M[mIdx(x)][c]=(M[mIdx(x)][c]||0)+sum(S.E[x][c]);used.add(c)}));
+  const hs=H().filter(h=>used.has(h.code)||((S.fys[y]||{T:{}}).T[h.code]||[]).some(v=>v));let cum=0,ct=0;const CT=Array(hs.length).fill(0);
+  const rows=MN.map((m,i)=>{const t=sum(hs.map(h=>M[i][h.code]||0)),tg=tgt(y,i)*1000;cum+=t;ct+=tg;hs.forEach((h,k)=>CT[k]+=M[i][h.code]||0);
+    return `<tr><td>${m}</td>${hs.map(h=>`<td class="n">${fu(M[i][h.code]||0)}</td>`).join('')}<td class="n"><b>${fu(t)}</b></td><td class="n">${fu(tg)}</td><td class="n">${tg?(t/tg*100).toFixed(1):'–'}%</td><td class="n">${fu(cum)}</td></tr>`}).join('');
+  $('mon').innerHTML=`<h2>${OF()} · ${y}/${String(y+1).slice(2)} मासिक राजस्व असुली (${ul()})</h2><table><tr><th>महिना</th>${hs.map(h=>`<th class="n">${h.abbr||h.code}</th>`).join('')}<th class="n">जम्मा</th><th class="n">लक्ष्य</th><th class="n">%</th><th class="n">संचित</th></tr>${rows}<tr class="t"><td>जम्मा</td>${CT.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(CT))}</td><td class="n">${fu(ct)}</td><td class="n">${ct?(sum(CT)/ct*100).toFixed(1):'–'}%</td><td></td></tr></table>`}
+function tgtUI(){const ys=fyList();opts($('tfy'),ys.map(y=>[y,fyLbl(y)]),$('tfy').value||ys[ys.length-1]);$('tfy').onchange=tgtUI;const f=ensureK(+$('tfy').value);
+  $('tt').innerHTML='<tr><th>Code</th><th>Head</th>'+MN.map(m=>`<th class="n">${m}</th>`).join('')+'</tr>'+H().map(h=>`<tr><td>${h.code}</td><td>${h.abbr||h.name.slice(0,18)}</td>${MN.map((_,i)=>`<td><input data-tc="${h.code}" data-m="${i}" value="${(f.T[h.code]||[])[i]||''}"></td>`).join('')}</tr>`).join('')+'<tr class="t"><td></td><td>Days in month</td>'+MN.map((_,i)=>`<td><input data-md="${i}" value="${f.mdays[i]}"></td>`).join('')+'</tr>'}
+function readT(){const f=ensureK(+$('tfy').value);document.querySelectorAll('#tt input[data-tc]').forEach(i=>{const c=i.dataset.tc;(f.T[c]=f.T[c]||Array(12).fill(0))[+i.dataset.m]=parseFloat(i.value)||0});document.querySelectorAll('#tt input[data-md]').forEach(i=>f.mdays[+i.dataset.md]=parseInt(i.value)||30)}
+$('tsave').onclick=()=>{readT();save();$('tmsg').textContent='Saved for '+fyLbl(+$('tfy').value)+'.'};
+$('tgo').onclick=()=>{const f=ensureK(+$('tfy').value);let n=0;$('tp').value.split(/\r?\n/).forEach(l=>{const p=l.split(/\t/).map(x=>x.trim());const c=al(p[0]);if(!c)return;f.T[c]=Array.from({length:12},(_,i)=>parseFloat(String(p[1+i]).replace(/,/g,''))||0);n++});save();tgtUI();$('tmsg').textContent=n+' heads loaded for '+fyLbl(+$('tfy').value)+'.'};
+function fyUI(){const cnt=y=>dates().filter(d=>fyStart(d)===y).length;$('ft').innerHTML='<tr><th>Fiscal year</th><th>Days with data</th><th>Days in each month (Shrawan to Ashadh)</th><th></th></tr>'+fyList().map(y=>`<tr><td>${fyLbl(y)}</td><td>${cnt(y)}</td><td>${(ensureK(y).mdays).join(', ')}</td><td><button class="b g" data-fyd="${y}">Delete</button></td></tr>`).join('')}
+function readH(){document.querySelectorAll('#ht tr[data-i]').forEach(tr=>{const g=k=>tr.querySelector(`[data-k="${k}"]`).value.trim();S.heads[+tr.dataset.i]={code:g('code'),abbr:g('abbr'),name:g('name')}})}
+function headUI(){$('ht').innerHTML='<tr><th></th><th>Revenue code</th><th>Short name</th><th>Revenue head (description)</th><th></th></tr>'+S.heads.map((h,i)=>`<tr data-i="${i}"><td><button class="b g" data-up="${i}">↑</button></td><td><input data-k="code" value="${esc(h.code)}" style="text-align:left"></td><td><input data-k="abbr" value="${esc(h.abbr)}" style="text-align:left"></td><td><input data-k="name" value="${esc(h.name)}" style="text-align:left;min-width:280px"></td><td><button class="b g" data-del="${i}">Delete</button></td></tr>`).join('')}
+function setUI(){fyUI();headUI();$('on').value=S.office;$('oad').value=S.address;$('bn').value=S.bank;$('ba').value=S.bankAddr;$('ot').innerHTML='<tr><th>Code</th><th>Name</th></tr>'+S.offices.map((o,i)=>`<tr><td><input data-oc="${i}" value="${o.code}"></td><td><input data-on="${i}" value="${o.name}" style="text-align:left"></td></tr>`).join('')}
+$('oadd').onclick=()=>{S.offices.push({code:'OFF'+(S.offices.length+1),name:''});save();setUI()};
+$('osave').onclick=()=>{S.office=$('on').value.trim();S.address=$('oad').value.trim();S.bank=$('bn').value.trim();S.bankAddr=$('ba').value.trim();S.offices.forEach((o,i)=>{o.code=document.querySelector(`[data-oc="${i}"]`).value;o.name=document.querySelector(`[data-on="${i}"]`).value});save();$('ofcName').textContent=S.office?'· '+S.office:'';setUI()};
+$('xf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'});const sn=wb.SheetNames.find(s=>/108_?entry/i.test(s))||wb.SheetNames[0];
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''});const hdr=rows.find(r=>/date/i.test(r[0]))||[];let oc=0;for(let j=3;j<hdr.length&&!/total/i.test(hdr[j]);j++)if(hdr[j])oc++;
+  while(S.offices.length<Math.min(oc,5))S.offices.push({code:'OFF'+(S.offices.length+1),name:''});
+  const n=ingest(rows);let m='Imported '+n+' rows from '+sn+'.';const ds=wb.SheetNames.find(s=>/^deposit$/i.test(s));if(ds){m+=' Deposits: '+ingestDep(XLSX.utils.sheet_to_json(wb.Sheets[ds],{header:1,raw:false,defval:''}))+' days.'}
+  $('xmsg').className='msg'+(n?'':' err');$('xmsg').textContent=n?m:'No rows found. Expected columns: Date, RevHead, name, office amounts.'}catch(x){$('xmsg').className='msg err';$('xmsg').textContent='Could not read that file.'}};r.readAsArrayBuffer(f)};
+$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='revenue-backup.json';a.click()};
+$('bk').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{S=Object.assign(def(),JSON.parse(ev.target.result));save();go('dash')}catch(x){alert('Not a valid backup file.')}};r.readAsText(f)};
+$('wipe').onclick=()=>{if(confirm('Delete ALL saved data in this browser?')){S=def();save();go('set')}};
+
+document.addEventListener('click',e=>{const t=e.target;if(!t.dataset)return;
+ if(t.dataset.fyd!==undefined){const y=+t.dataset.fyd,ds=dates().filter(d=>fyStart(d)===y);if(fyList().length<2){$('fmsg').className='msg err';$('fmsg').textContent='Keep at least one fiscal year.';return}if(confirm('Delete fiscal year '+fyLbl(y)+' with its targets'+(ds.length?' and ALL '+ds.length+' days of saved data':'')+'?')){ds.forEach(d=>{delete S.E[d];delete S.D[d]});delete S.fys[y];save();fyUI()}}
+ if(t.dataset.up!==undefined){readH();const i=+t.dataset.up;if(i>0)[S.heads[i-1],S.heads[i]]=[S.heads[i],S.heads[i-1]];headUI()}
+ if(t.dataset.del!==undefined){readH();const i=+t.dataset.del,h=S.heads[i],used=Object.values(S.E).some(x=>x[h.code]);if(confirm('Delete revenue head '+(h.code||'(blank)')+'?'+(used?' Saved amounts under this code stay stored but will no longer appear in reports.':''))){S.heads.splice(i,1);headUI()}}});
+$('fyadd').onclick=()=>{const y=parseInt($('fya').value),m=$('fmsg');if(!(y>=2000&&y<=2200)){m.className='msg err';m.textContent='Enter a start year such as 2083.';return}if(S.fys[y]){m.className='msg err';m.textContent=fyLbl(y)+' already exists.';return}
+ const ks=Object.keys(S.fys).map(Number).sort((a,b)=>a-b),pv=S.fys[ks.filter(k=>k<y).pop()],f=ensureK(y);if($('fyc').checked&&pv)f.T=JSON.parse(JSON.stringify(pv.T));save();m.className='msg';m.textContent=fyLbl(y)+' added. Check its month lengths and targets in the Targets tab.';$('fya').value='';fyUI()};
+$('hadd').onclick=()=>{readH();S.heads.push({code:'',abbr:'',name:''});headUI()};
+$('hsave').onclick=()=>{readH();const c=S.heads.map(h=>h.code);if(c.some(x=>!x)||new Set(c).size!==c.length){$('hmsg').className='msg err';$('hmsg').textContent='Every head needs a unique revenue code.';return}save();$('hmsg').className='msg';$('hmsg').textContent='Saved. The entry grid and reports now use this list.'};
+$('unit').value=S.unit;$('unit').onchange=()=>{S.unit=+$('unit').value;save();go(cur)};
+// ---- A4 print / PDF / Excel
+function prn(land){let st=document.getElementById('pgst');if(!st){st=document.createElement('style');st.id='pgst';document.head.appendChild(st)}st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:12mm}`;print()}
+async function pdf(html,name,land){const W=land?1123:794,w=document.createElement('div');w.className='pdfwrap';
+ w.style.cssText=`position:fixed;left:-99999px;top:0;width:${W}px;padding:40px;box-sizing:border-box;background:#fff;color:#000;font:13px "Noto Sans Devanagari","Mukta","Segoe UI",sans-serif`;w.innerHTML=html;document.body.appendChild(w);
+ try{const cv=await html2canvas(w,{scale:2,backgroundColor:'#ffffff'});const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:land?'l':'p'});
+  const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight(),k=pw/cv.width,pagePx=Math.floor(ph/k);
+  for(let y=0,i=0;y<cv.height;y+=pagePx,i++){const h=Math.min(pagePx,cv.height-y),c=document.createElement('canvas');c.width=cv.width;c.height=h;c.getContext('2d').drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);if(i)doc.addPage();doc.addImage(c.toDataURL('image/jpeg',.95),'JPEG',0,0,pw,h*k)}
+  doc.save(name+'.pdf')}catch(x){alert('Could not create the PDF. Use Print A4 and choose Save as PDF.')}finally{document.body.removeChild(w)}}
+function xl(aoa,name,cols){const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=cols.map(w=>({wch:w}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,name+'.xlsx')}
+$('rprint').onclick=()=>prn($('ro').value==='l');$('rpdf').onclick=()=>pdf($('rep').innerHTML,'daily-report-'+LD.d,$('ro').value==='l');$('rxl').onclick=()=>xl(LD.aoa,'daily-report-'+LD.d,[8,12,48,18,18,18,18,20]);
+$('bprint').onclick=()=>prn(false);$('bpdf').onclick=()=>pdf($('bank').innerHTML,'bank-letter-'+LB.d,false);$('bxl').onclick=()=>xl(LB.aoa,'bank-letter-'+LB.d,[8,12,48,...S.offices.map(()=>18),20]);
+if(S.T||S.mdays){const ds=dates(),y=ds.length?fyStart(ds[ds.length-1]):2082,f=ensureK(y);if(S.mdays)f.mdays=S.mdays;if(S.T)f.T=S.T;delete S.T;delete S.mdays;save()}
+$('ofcName').textContent=S.office?'· '+S.office:'';go('dash');
+</script></body></html>
