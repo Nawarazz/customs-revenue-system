@@ -32,6 +32,7 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
 .rob{background:var(--card);border:1px solid var(--acc);color:var(--acc);padding:6px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
 .fyd{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;margin:4px 0 8px}.fyd input{width:100%;text-align:center}
 td input.l{text-align:left}
+.mkroot,.mkroot *{font-family:'Kalimati','Noto Sans Devanagari',sans-serif}.mkroot .mkn{font-family:'Fontasy Himali','Kalimati',sans-serif}
 #mask table{font-size:12px}#mask th,#mask td{text-align:center;vertical-align:middle;padding:5px 4px}#mask th{font-weight:700}#mask tr.t td{font-weight:700}
 .pdfwrap table.mk{font-size:10px}.pdfwrap table.mk th,.pdfwrap table.mk td{text-align:center;vertical-align:middle;padding:4px 3px}
 @media print{#mask table{font-size:9px}}
@@ -300,26 +301,29 @@ function month(){const ys=fyList();opts($('mfy'),ys.map(y=>[y,fyLbl(y)]),$('mfy'
 
 /* ================= Maskebari (monthly percentage-wise revenue sheet) ================= */
 const nepDig=t=>String(t).replace(/\d/g,d=>'०१२३४५६७८९'[d]);
-const MKC=[['भन्सार महसुल पैठारी (ID)',['11511']],['भन्सार महसुल निकासी (EXD)',['11521']],['निकासी सेवा दस्तुर (CSF)',['11522']],['कृषि सुधार शुल्क (ARF)',['11561']],['भन्सार सम्वन्धी अन्य आय\n(पैठारी सेवा दस्तुर) (CSF)',['11562']],['स्वास्थ्य जोखिम कर (HHT)',['11424']],['मु.अ. कर (VAT)',['33312']],['अन्त: शुल्क (ECS)',['11422']],['सडक निर्माण दस्तुर (RDF)',['11454']],['विलासिता शुल्क (LUF)',['11412']],['हरित कर (GT)',['11515']],['आन्तरिक उत्पादन संरक्षण तथा प्रवर्द्दन शुल्क (DPF)',['IDP']],['स्वच्छ पूर्वाधार लगानी शुल्क (ICF)',['11455']],['अन्य कर तथा शुल्क (अन्य प्रशासनिक सेवा शुल्क)',['14229']],['प्रशासनिक दण्ड जरिवाना र जफत\n(14312)',['14312']]];
+const MKC=[['भन्सार महसुल पैठारी (ID)',['11511']],['भन्सार महसुल निकासी (EXD)',['11521']],['निकासी सेवा दस्तुर (CSF)',['11522']],['कृषि सुधार शुल्क (ARF)',['11561']],['भन्सार सम्वन्धी अन्य आय\n(पैठारी सेवा दस्तुर) (CSF)',['11562']],['स्वास्थ्य जोखिम कर (HHT)',['11424']],['मु.अ. कर (VAT)',['33312']],['अन्त: शुल्क (ECS)',['11422']],['सडक निर्माण दस्तुर (RDF)',['11454']],['विलासिता शुल्क (LUF)',['11412']],['हरित कर (GT)',['11515']],['आन्तरिक उत्पादन संरक्षण तथा प्रवर्द्दन शुल्क (DPF)',['IDP','DPF']],['स्वच्छ पूर्वाधार लगानी शुल्क (ICF)',['11455']],['अन्य कर तथा शुल्क (अन्य प्रशासनिक सेवा शुल्क)',['14229']],['प्रशासनिक दण्ड जरिवाना र जफत\n(14312)',['14312']]];
 const mkCodes=i=>{const v=S.mk&&S.mk[i];return (v!=null?String(v).split(','):MKC[i][1]).map(x=>x.trim()).filter(Boolean)};
+/* a token in the mapping may be a head code or a head abbreviation (e.g. DPF); returns the real head codes */
+const mkResolve=toks=>{const out=new Set();toks.forEach(t=>{out.add(t);(S.heads||[]).forEach(h=>{if(String(h.abbr||'').toUpperCase()===t.toUpperCase())out.add(String(h.code))})});return [...out]};
+const mkF=v=>{const t=fu(v);return /^[0.,\s-]*$/.test(t)?'-':t};   /* zero shows as - */
 const MKM=['साउन','भदौ','असोज','कार्तिक','मंसिर','पुस','माघ','फागुन','चैत्र','बैशाख','जेष्ठ','असार'];
 let MKD=null;
 function maskUI(){
   const ys=fyList();opts($('mkfy'),ys.map(y=>[y,fyLbl(y)]),$('mkfy').value||ys[ys.length-1]);$('mkfy').onchange=maskUI;
   const y=+$('mkfy').value,[a,b]=fyRange(y);
-  const cols=MKC.map((c,i)=>({t:c[0],codes:mkCodes(i)})),used=new Set(cols.flatMap(c=>c.codes)),M=MN.map(()=>({})),extra={};
+  const cols=MKC.map((c,i)=>({t:c[0],codes:mkResolve(mkCodes(i))})),used=new Set(cols.flatMap(c=>c.codes)),M=MN.map(()=>({})),extra={};
   dates().filter(x=>x>=a&&x<=b).forEach(x=>Object.keys(S.E[x]).forEach(c=>{const v=sum(S.E[x][c]),m=mIdx(x);M[m][c]=(M[m][c]||0)+v;if(!used.has(c)&&v)extra[c]=(extra[c]||0)+v}));
   const rows=MN.map((_,m)=>{const v=cols.map(c=>sum(c.codes.map(k=>M[m][k]||0)));return [...v,sum(v)]});
   const tot=cols.map((_,k)=>sum(rows.map(r=>r[k])));tot.push(sum(tot));
   const nums=[...cols.map((_,k)=>k<14?String(k+1):''),'15'];   /* same numbering as the Excel sheet */
   const titles=[...cols.map(c=>c.t),'जम्मा'];
-  const head=['नेपाल सरकार','अर्थ मन्त्रालय','भन्सार विभाग',OF(),'आ.ब. '+nepDig(y+'/'+String(y+1).slice(2))+' को राजस्व असुली'];
-  MKD={y,head,nums,titles,rows,tot};
+  const head=['नेपाल सरकार','अर्थ मन्त्रालय','भन्सार विभाग',OF(),'']; const fyTxt=y+'/'+String(y+1).slice(2);
+  MKD={y,head,nums,titles,rows,tot,fyTxt};
   const h=t=>String(t).split('\n').map(x=>aEsc(x)).join('<br>');
-  $('mask').innerHTML=`<div class="ctr" style="line-height:1.5"><b style="font-size:15px">${head[0]}<br>${head[1]}<br>${head[2]}</b><br><b style="font-size:20px">${aEsc(head[3])}</b>${S.address?'<br>'+aEsc(S.address):''}<br><b style="font-size:16px">${head[4]}</b><br><small>रकम: ${ul()}</small></div>
-  <div class="wrap"><table class="mk" style="margin-top:10px"><tr><th>सि. न.</th>${nums.map(n=>`<th>${n}</th>`).join('')}</tr><tr><th>शीर्षक</th>${titles.map(t=>`<th>${h(t)}</th>`).join('')}</tr>
-  ${rows.map((r,m)=>`<tr><th>${MKM[m]}</th>${r.map((v,k)=>`<td${k===15?' style="font-weight:700"':''}>${fu(v)}</td>`).join('')}</tr>`).join('')}
-  <tr class="t"><td>जम्मा</td>${tot.map(v=>`<td>${fu(v)}</td>`).join('')}</tr></table></div>`;
+  $('mask').innerHTML=`<div class="mkroot"><div class="ctr" style="line-height:1.5"><b style="font-size:15px">${head[0]}<br>${head[1]}<br>${head[2]}</b><br><b style="font-size:20px">${aEsc(head[3])}</b>${S.address?'<br>'+aEsc(S.address):''}<br><b style="font-size:16px">आ.ब. <span class="mkn">${fyTxt}</span> को राजस्व असुली</b></div>
+  <div class="wrap"><table class="mk" style="margin-top:10px"><tr><th>सि. न.</th>${nums.map(n=>`<th class="mkn">${n}</th>`).join('')}</tr><tr><th>शीर्षक</th>${titles.map(t=>`<th>${h(t)}</th>`).join('')}</tr>
+  ${rows.map((r,m)=>`<tr><th>${MKM[m]}</th>${r.map((v,k)=>`<td class="mkn"${k===15?' style="font-weight:700"':''}>${mkF(v)}</td>`).join('')}</tr>`).join('')}
+  <tr class="t"><td>जम्मा</td>${tot.map(v=>`<td class="mkn">${mkF(v)}</td>`).join('')}</tr></table></div></div>`;
   const ex=Object.keys(extra);
   $('mkNote').textContent=ex.length?'Not in any column (so not in the total): '+ex.map(c=>{const hd=S.heads.find(x=>x.code===c);return c+(hd&&hd.abbr?' '+hd.abbr:'')+' '+fk(nu(extra[c]))}).join(' · ')+' — use Column mapping below to include them.':'';
   $('mkmap').innerHTML='<tr><th>No.</th><th>Column</th><th>Revenue codes (comma separated)</th></tr>'+MKC.map((c,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${h(c[0])}</td><td><input class="l" data-mk="${i}" value="${aEsc(mkCodes(i).join(', '))}" style="min-width:160px"></td></tr>`).join('');
@@ -333,11 +337,11 @@ $('mkpdf').onclick=()=>pdf($('mask').innerHTML,'maskebari-'+MKD.y+'-'+String(MKD
 async function mkBuildWorkbook(ExcelJS){
   const D=MKD,wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('राजश्वको मास्केवारी',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:1,margins:{left:.4,right:.4,top:.5,bottom:.5,header:.2,footer:.2}}});
   const W=[10,17.6,17,17,15,19.7,17,18.6,16,16,15,15,19.3,17,17,18.6,18];ws.columns=W.map(w=>({width:w}));
-  const F=(sz,b=true)=>({name:'Kalimati',size:sz,bold:b}),C={horizontal:'center',vertical:'middle',wrapText:true},thin={style:'thin'},BD={top:thin,left:thin,bottom:thin,right:thin};
+  const F=(sz,b=true)=>({name:'Kalimati',size:sz,bold:b}),FH=(sz,b=true)=>({name:'Fontasy Himali',size:sz,bold:b}),C={horizontal:'center',vertical:'middle',wrapText:true},thin={style:'thin'},BD={top:thin,left:thin,bottom:thin,right:thin};
   const sizes=[12,14,14,26,18],hts=[28.9,36,47.25,40.9,36];
-  D.head.forEach((t,i)=>{ws.mergeCells(i+1,1,i+1,17);const c=ws.getCell(i+1,1);c.value=t;c.font=F(sizes[i]);c.alignment=C;ws.getRow(i+1).height=hts[i]});
+  D.head.forEach((t,i)=>{ws.mergeCells(i+1,1,i+1,17);const c=ws.getCell(i+1,1);c.value=i===4?{richText:[{text:'आ.ब. ',font:F(18)},{text:D.fyTxt,font:FH(18)},{text:' को राजस्व असुली',font:F(18)}]}:t;c.font=F(sizes[i]);c.alignment=C;ws.getRow(i+1).height=hts[i]});
   ws.getRow(6).height=7.9;
-  const unitTxt=ul(),dec=(+S.unit||1)>1?'#,##0.00':'#,##0';
+  const dec=(+S.unit||1)>1?'#,##0.00;-#,##0.00;"-"':'#,##0;-#,##0;"-"';
   /* row 7 numbering, row 8 titles */
   ws.getCell(7,1).value='सि. न.';D.nums.forEach((n,k)=>{const c=ws.getCell(7,2+k);c.value=n===''?null:+n});
   ws.getCell(8,1).value='शीर्षक';D.titles.forEach((t,k)=>{ws.getCell(8,2+k).value=t});
@@ -347,8 +351,7 @@ async function mkBuildWorkbook(ExcelJS){
   ws.getCell(21,1).value='जम्मा';
   for(let k=0;k<15;k++){const L=ws.getCell(21,2+k).address.replace(/\d+/,'');ws.getCell(21,2+k).value={formula:`SUM(${L}9:${L}20)`,result:nu(D.tot[k])}}
   ws.getCell(21,17).value={formula:'SUM(Q9:Q20)',result:nu(D.tot[15])};ws.getRow(21).height=34.15;
-  for(let r=7;r<=21;r++)for(let c=1;c<=17;c++){const x=ws.getCell(r,c);x.font=F(r>=9&&c>1?12:11);x.alignment=C;x.border=BD;if(r>=9&&c>1)x.numFmt=dec}
-  ws.getCell(22,1).value='रकम: '+unitTxt;ws.getCell(22,1).font=F(10,false);
+  for(let r=7;r<=21;r++)for(let c=1;c<=17;c++){const x=ws.getCell(r,c);x.font=(r===7&&c>1)?FH(12):(r>=9&&c>1)?FH(12):F(11);x.alignment=C;x.border=BD;if(r>=9&&c>1)x.numFmt=dec}
   return wb;
 }
 $('mkxl').onclick=async()=>{
@@ -357,7 +360,7 @@ $('mkxl').onclick=async()=>{
     const wb=await mkBuildWorkbook(window.ExcelJS),buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name+'.xlsx';a.click();
   }else{ /* plain fallback if the styled-Excel library could not load */
-    const D=MKD,aoa=[...D.head.map(x=>[x]),[],['सि. न.',...D.nums],['शीर्षक',...D.titles],...D.rows.map((r,i)=>[MKM[i],...r.map(nu)]),['जम्मा',...D.tot.map(nu)]];
+    const D=MKD,aoa=[...D.head.map((x,i)=>[i===4?'आ.ब. '+D.fyTxt+' को राजस्व असुली':x]),[],['सि. न.',...D.nums],['शीर्षक',...D.titles],...D.rows.map((r,i)=>[MKM[i],...r.map(nu)]),['जम्मा',...D.tot.map(nu)]];
     xl(aoa,name,[10,...D.titles.map(()=>16)]);
   }
 };
