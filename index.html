@@ -6,6 +6,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--ink:#1c2b36;--mut:#5d6d79;--bg:#f2f5f7;--card:#fff;--line:#d9e1e6;--acc:#b3243b;--acc2:#1f5f7a;--ok:#1b7a4b}
@@ -31,6 +32,9 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
 .rob{background:var(--card);border:1px solid var(--acc);color:var(--acc);padding:6px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
 .fyd{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;margin:4px 0 8px}.fyd input{width:100%;text-align:center}
 td input.l{text-align:left}
+#mask table{font-size:12px}#mask th,#mask td{text-align:center;vertical-align:middle;padding:5px 4px}#mask th{font-weight:700}#mask tr.t td{font-weight:700}
+.pdfwrap table.mk{font-size:10px}.pdfwrap table.mk th,.pdfwrap table.mk td{text-align:center;vertical-align:middle;padding:4px 3px}
+@media print{#mask table{font-size:9px}}
 @media print{#rep table,#bank table{font-size:10px}header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0}th,td{border-color:#999}}
 </style></head><body>
 
@@ -81,6 +85,11 @@ td input.l{text-align:left}
 <section class="sec" id="s_daily"><div class="row noprint"><div><label>Date</label><input id="rd" size="11"></div><button class="b g" id="rprev">◀</button><button class="b g" id="rnext">▶</button><div><label>Page</label><select id="ro"><option value="p">A4 Portrait</option><option value="l">A4 Landscape</option></select></div><button class="b" id="rprint">Print A4</button><button class="b" id="rpdf">Download PDF</button><button class="b" id="rxl">Download Excel</button></div><div class="card" id="rep"></div></section>
 <section class="sec" id="s_bank"><div class="row noprint"><div><label>Date</label><input id="bd" size="11"></div><div><label>Letter no. (च.नं.)</label><input id="bno" size="8"></div><button class="b" id="bprint">Print A4</button><button class="b" id="bpdf">Download PDF</button><button class="b" id="bxl">Download Excel</button></div><div class="card" id="bank"></div></section>
 <section class="sec" id="s_month"><div class="row"><div><label>आर्थिक वर्ष</label><select id="mfy"></select></div><button class="b noprint" onclick="print()">Print</button></div><div class="card"><div class="wrap" id="mon"></div></div></section>
+<section class="sec" id="s_mask"><div class="row noprint"><div><label>आर्थिक वर्ष</label><select id="mkfy"></select></div><button class="b" id="mkprint">Print A4</button><button class="b" id="mkpdf">Download PDF</button><button class="b" id="mkxl">Download Excel</button></div>
+<div class="card" id="mask"></div>
+<div class="msg noprint" id="mkNote" style="color:var(--mut)"></div>
+<details class="card noprint"><summary style="cursor:pointer;font-weight:700">Column mapping (which revenue codes feed each column)</summary><p style="margin:8px 0;color:var(--mut)">Each column of the report adds up the revenue codes listed here (separate several codes with commas). The defaults follow your Maskebari Excel sheet; change them only if a column should include other heads.</p><div class="wrap"><table id="mkmap"></table></div><div class="row" style="margin-top:8px"><button class="b" id="mksave">Save mapping</button><button class="b g" id="mkreset">Reset to default</button><span class="msg" id="mkmsg"></span></div></details>
+</section>
 <section class="sec" id="s_tgt"><div class="card"><h2>Targets (Rs thousand) and month lengths</h2><div class="row"><div><label>आर्थिक वर्ष (fiscal year)</label><select id="tfy"></select></div></div><p style="margin:0 0 8px;color:var(--mut)">Paste rows from your target sheet: head code then 12 monthly values (Shrawan to Ashadh), or type directly.</p><textarea id="tp" style="height:70px"></textarea><div class="row" style="margin-top:6px"><button class="b" id="tgo">Load pasted targets</button><button class="b g" id="tsave">Save table</button><span class="msg" id="tmsg"></span></div><div class="wrap"><table id="tt"></table></div></div></section>
 <section class="sec" id="s_set">
 <div class="card"><h2>Office and sub-offices</h2><div class="row"><div><label>Office name</label><input id="on" size="34"></div><div><label>Office address</label><input id="oad" size="34"></div></div><div class="row"><div><label>Bank name (for bank letter)</label><input id="bn" size="34"></div><div><label>Bank branch / address</label><input id="ba" size="34"></div></div><div class="wrap"><table id="ot"></table></div><div class="row" style="margin-top:8px"><button class="b g" id="oadd">Add sub-office</button><button class="b" id="osave">Save</button><span class="msg" id="omsg"></span></div></div>
@@ -215,11 +224,11 @@ function calc(d){const [a,b]=fyRange(fyStart(d)),ym=d.slice(0,7);const out={};
   dates().forEach(x=>{if(x<a||x>b||x>d)return;const e=S.E[x];Object.keys(e).forEach(c=>{const v=sum(e[c]),o=out[c];if(!o)return;o.fy+=v;if(x===d)o.today+=v;else if(x.slice(0,7)===ym)o.mPrev+=v;else o.last+=v})});return out}
 function tgt(y,mi){let t=0;const T=(S.fys[y]||{T:{}}).T;H().forEach(h=>{t+=(T[h.code]||[])[mi]||0});return t}
 const tgtFY=y=>MN.reduce((s,_,i)=>s+tgt(y,i),0);
-const TABS=[['dash','ड्यासबोर्ड Dashboard'],['entry','दैनिक प्रविष्टि Entry'],['daily','दैनिक टिपोट Daily report'],['bank','बैंक पत्र Bank letter'],['month','मासिक Monthly'],['tgt','लक्ष्य Targets'],['set','सेटिङ Settings']];
+const TABS=[['dash','ड्यासबोर्ड Dashboard'],['entry','दैनिक प्रविष्टि Entry'],['daily','दैनिक टिपोट Daily report'],['bank','बैंक पत्र Bank letter'],['month','मासिक Monthly'],['mask','मास्केवारी Maskebari'],['tgt','लक्ष्य Targets'],['set','सेटिङ Settings']];
 $('nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
 let cur='dash';function go(t){cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));if(t==='admin'&&!isAdmin)t='dash';if(!currentOffice&&t!=='admin'){t='admin'}
   cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-  ({dash,entry,daily,bank,month,tgt:tgtUI,set:setUI,admin:adminUI})[t]();lockIfReadOnly()}
+  ({dash,entry,daily,bank,month,mask:maskUI,tgt:tgtUI,set:setUI,admin:adminUI})[t]();lockIfReadOnly()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.t));
 const last=()=>dates().pop()||(fyList().pop()+'.04.01');
 function shift(d,k){const ds=dates();let i=ds.indexOf(d);if(i<0){return k>0?ds.find(x=>x>d)||d:[...ds].reverse().find(x=>x<d)||d}return ds[Math.min(ds.length-1,Math.max(0,i+k))]}
@@ -288,6 +297,71 @@ function month(){const ys=fyList();opts($('mfy'),ys.map(y=>[y,fyLbl(y)]),$('mfy'
   const rows=MN.map((m,i)=>{const t=sum(hs.map(h=>M[i][h.code]||0)),tg=tgt(y,i)*1000;cum+=t;ct+=tg;hs.forEach((h,k)=>CT[k]+=M[i][h.code]||0);
     return `<tr><td>${m}</td>${hs.map(h=>`<td class="n">${fu(M[i][h.code]||0)}</td>`).join('')}<td class="n"><b>${fu(t)}</b></td><td class="n">${fu(tg)}</td><td class="n">${tg?(t/tg*100).toFixed(1):'–'}%</td><td class="n">${fu(cum)}</td></tr>`}).join('');
   $('mon').innerHTML=`<h2>${OF()} · ${y}/${String(y+1).slice(2)} मासिक राजस्व असुली (${ul()})</h2><table><tr><th>महिना</th>${hs.map(h=>`<th class="n">${h.abbr||h.code}</th>`).join('')}<th class="n">जम्मा</th><th class="n">लक्ष्य</th><th class="n">%</th><th class="n">संचित</th></tr>${rows}<tr class="t"><td>जम्मा</td>${CT.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(CT))}</td><td class="n">${fu(ct)}</td><td class="n">${ct?(sum(CT)/ct*100).toFixed(1):'–'}%</td><td></td></tr></table>`}
+
+/* ================= Maskebari (monthly percentage-wise revenue sheet) ================= */
+const nepDig=t=>String(t).replace(/\d/g,d=>'०१२३४५६७८९'[d]);
+const MKC=[['भन्सार महसुल पैठारी (ID)',['11511']],['भन्सार महसुल निकासी (EXD)',['11521']],['निकासी सेवा दस्तुर (CSF)',['11522']],['कृषि सुधार शुल्क (ARF)',['11561']],['भन्सार सम्वन्धी अन्य आय\n(पैठारी सेवा दस्तुर) (CSF)',['11562']],['स्वास्थ्य जोखिम कर (HHT)',['11424']],['मु.अ. कर (VAT)',['33312']],['अन्त: शुल्क (ECS)',['11422']],['सडक निर्माण दस्तुर (RDF)',['11454']],['विलासिता शुल्क (LUF)',['11412']],['हरित कर (GT)',['11515']],['आन्तरिक उत्पादन संरक्षण तथा प्रवर्द्दन शुल्क (DPF)',['IDP']],['स्वच्छ पूर्वाधार लगानी शुल्क (ICF)',['11455']],['अन्य कर तथा शुल्क (अन्य प्रशासनिक सेवा शुल्क)',['14229']],['प्रशासनिक दण्ड जरिवाना र जफत\n(14312)',['14312']]];
+const mkCodes=i=>{const v=S.mk&&S.mk[i];return (v!=null?String(v).split(','):MKC[i][1]).map(x=>x.trim()).filter(Boolean)};
+const MKM=['साउन','भदौ','असोज','कार्तिक','मंसिर','पुस','माघ','फागुन','चैत्र','बैशाख','जेष्ठ','असार'];
+let MKD=null;
+function maskUI(){
+  const ys=fyList();opts($('mkfy'),ys.map(y=>[y,fyLbl(y)]),$('mkfy').value||ys[ys.length-1]);$('mkfy').onchange=maskUI;
+  const y=+$('mkfy').value,[a,b]=fyRange(y);
+  const cols=MKC.map((c,i)=>({t:c[0],codes:mkCodes(i)})),used=new Set(cols.flatMap(c=>c.codes)),M=MN.map(()=>({})),extra={};
+  dates().filter(x=>x>=a&&x<=b).forEach(x=>Object.keys(S.E[x]).forEach(c=>{const v=sum(S.E[x][c]),m=mIdx(x);M[m][c]=(M[m][c]||0)+v;if(!used.has(c)&&v)extra[c]=(extra[c]||0)+v}));
+  const rows=MN.map((_,m)=>{const v=cols.map(c=>sum(c.codes.map(k=>M[m][k]||0)));return [...v,sum(v)]});
+  const tot=cols.map((_,k)=>sum(rows.map(r=>r[k])));tot.push(sum(tot));
+  const nums=[...cols.map((_,k)=>k<14?String(k+1):''),'15'];   /* same numbering as the Excel sheet */
+  const titles=[...cols.map(c=>c.t),'जम्मा'];
+  const head=['नेपाल सरकार','अर्थ मन्त्रालय','भन्सार विभाग',OF(),'आ.ब. '+nepDig(y+'/'+String(y+1).slice(2))+' को राजस्व असुली'];
+  MKD={y,head,nums,titles,rows,tot};
+  const h=t=>String(t).split('\n').map(x=>aEsc(x)).join('<br>');
+  $('mask').innerHTML=`<div class="ctr" style="line-height:1.5"><b style="font-size:15px">${head[0]}<br>${head[1]}<br>${head[2]}</b><br><b style="font-size:20px">${aEsc(head[3])}</b>${S.address?'<br>'+aEsc(S.address):''}<br><b style="font-size:16px">${head[4]}</b><br><small>रकम: ${ul()}</small></div>
+  <div class="wrap"><table class="mk" style="margin-top:10px"><tr><th>सि. न.</th>${nums.map(n=>`<th>${n}</th>`).join('')}</tr><tr><th>शीर्षक</th>${titles.map(t=>`<th>${h(t)}</th>`).join('')}</tr>
+  ${rows.map((r,m)=>`<tr><th>${MKM[m]}</th>${r.map((v,k)=>`<td${k===15?' style="font-weight:700"':''}>${fu(v)}</td>`).join('')}</tr>`).join('')}
+  <tr class="t"><td>जम्मा</td>${tot.map(v=>`<td>${fu(v)}</td>`).join('')}</tr></table></div>`;
+  const ex=Object.keys(extra);
+  $('mkNote').textContent=ex.length?'Not in any column (so not in the total): '+ex.map(c=>{const hd=S.heads.find(x=>x.code===c);return c+(hd&&hd.abbr?' '+hd.abbr:'')+' '+fk(nu(extra[c]))}).join(' · ')+' — use Column mapping below to include them.':'';
+  $('mkmap').innerHTML='<tr><th>No.</th><th>Column</th><th>Revenue codes (comma separated)</th></tr>'+MKC.map((c,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${h(c[0])}</td><td><input class="l" data-mk="${i}" value="${aEsc(mkCodes(i).join(', '))}" style="min-width:160px"></td></tr>`).join('');
+}
+$('mksave').onclick=async()=>{S.mk={};document.querySelectorAll('#mkmap input[data-mk]').forEach(i=>{const k=+i.dataset.mk,v=i.value.split(',').map(x=>x.trim()).filter(Boolean).join(',');if(v!==MKC[k][1].join(','))S.mk[k]=v});const ok=await save();maskUI();$('mkmsg').className='msg';$('mkmsg').textContent=ok?'Mapping saved.':'Not saved.'};
+$('mkreset').onclick=async()=>{if(!confirm('Reset all columns to the default codes?'))return;delete S.mk;const ok=await save();maskUI();$('mkmsg').className='msg';$('mkmsg').textContent=ok?'Reset to default.':'Not saved.'};
+$('mkprint').onclick=()=>prn(true);
+$('mkpdf').onclick=()=>pdf($('mask').innerHTML,'maskebari-'+MKD.y+'-'+String(MKD.y+1).slice(2),true);
+
+/* Excel in the layout of the supplied sheet (Kalimati, bold, centred, thin borders, A4 landscape) */
+async function mkBuildWorkbook(ExcelJS){
+  const D=MKD,wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('राजश्वको मास्केवारी',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:1,margins:{left:.4,right:.4,top:.5,bottom:.5,header:.2,footer:.2}}});
+  const W=[10,17.6,17,17,15,19.7,17,18.6,16,16,15,15,19.3,17,17,18.6,18];ws.columns=W.map(w=>({width:w}));
+  const F=(sz,b=true)=>({name:'Kalimati',size:sz,bold:b}),C={horizontal:'center',vertical:'middle',wrapText:true},thin={style:'thin'},BD={top:thin,left:thin,bottom:thin,right:thin};
+  const sizes=[12,14,14,26,18],hts=[28.9,36,47.25,40.9,36];
+  D.head.forEach((t,i)=>{ws.mergeCells(i+1,1,i+1,17);const c=ws.getCell(i+1,1);c.value=t;c.font=F(sizes[i]);c.alignment=C;ws.getRow(i+1).height=hts[i]});
+  ws.getRow(6).height=7.9;
+  const unitTxt=ul(),dec=(+S.unit||1)>1?'#,##0.00':'#,##0';
+  /* row 7 numbering, row 8 titles */
+  ws.getCell(7,1).value='सि. न.';D.nums.forEach((n,k)=>{const c=ws.getCell(7,2+k);c.value=n===''?null:+n});
+  ws.getCell(8,1).value='शीर्षक';D.titles.forEach((t,k)=>{ws.getCell(8,2+k).value=t});
+  ws.getRow(7).height=25.9;ws.getRow(8).height=105.6;
+  MKM.forEach((m,i)=>{const r=9+i;ws.getCell(r,1).value=m;D.rows[i].slice(0,15).forEach((v,k)=>{ws.getCell(r,2+k).value=nu(v)});
+    ws.getCell(r,17).value={formula:`SUM(B${r}:P${r})`,result:nu(D.rows[i][15])};ws.getRow(r).height=31.9});
+  ws.getCell(21,1).value='जम्मा';
+  for(let k=0;k<15;k++){const L=ws.getCell(21,2+k).address.replace(/\d+/,'');ws.getCell(21,2+k).value={formula:`SUM(${L}9:${L}20)`,result:nu(D.tot[k])}}
+  ws.getCell(21,17).value={formula:'SUM(Q9:Q20)',result:nu(D.tot[15])};ws.getRow(21).height=34.15;
+  for(let r=7;r<=21;r++)for(let c=1;c<=17;c++){const x=ws.getCell(r,c);x.font=F(r>=9&&c>1?12:11);x.alignment=C;x.border=BD;if(r>=9&&c>1)x.numFmt=dec}
+  ws.getCell(22,1).value='रकम: '+unitTxt;ws.getCell(22,1).font=F(10,false);
+  return wb;
+}
+$('mkxl').onclick=async()=>{
+  const name='maskebari-'+MKD.y+'-'+String(MKD.y+1).slice(2);
+  if(window.ExcelJS){
+    const wb=await mkBuildWorkbook(window.ExcelJS),buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name+'.xlsx';a.click();
+  }else{ /* plain fallback if the styled-Excel library could not load */
+    const D=MKD,aoa=[...D.head.map(x=>[x]),[],['सि. न.',...D.nums],['शीर्षक',...D.titles],...D.rows.map((r,i)=>[MKM[i],...r.map(nu)]),['जम्मा',...D.tot.map(nu)]];
+    xl(aoa,name,[10,...D.titles.map(()=>16)]);
+  }
+};
+
 function tgtUI(){const ys=fyList();opts($('tfy'),ys.map(y=>[y,fyLbl(y)]),$('tfy').value||ys[ys.length-1]);$('tfy').onchange=tgtUI;const f=ensureK(+$('tfy').value);
   $('tt').innerHTML='<tr><th>Code</th><th>Head</th>'+MN.map(m=>`<th class="n">${m}</th>`).join('')+'</tr>'+H().map(h=>`<tr><td>${h.code}</td><td>${h.abbr||h.name.slice(0,18)}</td>${MN.map((_,i)=>`<td><input data-tc="${h.code}" data-m="${i}" value="${(f.T[h.code]||[])[i]||''}"></td>`).join('')}</tr>`).join('')+'<tr class="t"><td></td><td>Days in month</td>'+MN.map((_,i)=>`<td><input data-md="${i}" value="${f.mdays[i]}"></td>`).join('')+'</tr>'}
 function readT(){const f=ensureK(+$('tfy').value);document.querySelectorAll('#tt input[data-tc]').forEach(i=>{const c=i.dataset.tc;(f.T[c]=f.T[c]||Array(12).fill(0))[+i.dataset.m]=parseFloat(i.value)||0});document.querySelectorAll('#tt input[data-md]').forEach(i=>f.mdays[+i.dataset.md]=parseInt(i.value)||30)}
@@ -456,7 +530,7 @@ function applyAccessUI(){
 function lockIfReadOnly(){
   if(canEdit)return;
   ['esave','pgo','tgo','tsave','oadd','osave','fyadd','hadd','hsave','wipe','xf'].forEach(id=>{const e=$(id);if(e)e.disabled=true});
-  document.querySelectorAll('#s_entry input:not(#ed),#s_entry textarea,#s_tgt input,#s_tgt textarea,#s_set input,#s_set textarea,#s_set button,#s_tgt button').forEach(e=>e.disabled=true);
+  document.querySelectorAll('#s_entry input:not(#ed),#s_entry textarea,#s_tgt input,#s_tgt textarea,#s_set input,#s_set textarea,#s_set button,#s_tgt button,#s_mask details input,#s_mask details button').forEach(e=>e.disabled=true);
   document.querySelectorAll('button[onclick="bk.click()"]').forEach(e=>e.disabled=true);
 }
 
