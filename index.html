@@ -26,6 +26,11 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
 .pdfwrap{--ink:#000;--bg:#eee;--line:#999;--card:#fff}.pdfwrap table{font-size:11px}
 #loginBox{max-width:380px;margin:80px auto;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 #loginBox input{width:100%;margin-bottom:10px}
+#noAccess{max-width:460px;margin:80px auto;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:6px;display:none}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid var(--line);color:var(--mut)}.pill.ok{color:var(--ok);border-color:var(--ok)}.pill.no{color:var(--acc);border-color:var(--acc)}
+.rob{background:var(--card);border:1px solid var(--acc);color:var(--acc);padding:6px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
+.fyd{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;margin:4px 0 8px}.fyd input{width:100%;text-align:center}
+td input.l{text-align:left}
 @media print{#rep table,#bank table{font-size:10px}header,nav,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0}th,td{border-color:#999}}
 </style></head><body>
 
@@ -40,12 +45,19 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
   <div class="msg err" id="lErr"></div>
 </div>
 
+<div id="noAccess">
+  <h2 style="margin-top:0">Access not available</h2>
+  <p id="noAccessMsg" style="margin:0 0 12px"></p>
+  <button class="b" id="noAccessOut">Sign out</button>
+</div>
+
 <div id="appShell" style="display:none">
 <header>
   <h1>भन्सार राजस्व प्रणाली <span style="font:13px sans-serif;color:var(--mut)" id="ofcName"></span></h1>
   <div class="noprint">
     <span id="syncStatus" style="font-size:12px;color:var(--mut);margin-right:6px"></span>
     <span id="userBadge" style="font-size:12px;color:var(--mut);margin-right:6px"></span>
+    <select id="ofSwitch" title="Office (administrator only)" style="display:none"></select>
     <select id="unit" title="Display unit"><option value="1">Rs</option><option value="1000">Rs thousand (हजार)</option><option value="100000">Rs lakh (लाख)</option></select>
     <button class="b g" id="syncNow">Sync now</button>
     <button class="b g" id="exp">Export backup</button>
@@ -56,6 +68,7 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
 </header>
 <nav id="nav"></nav>
 <main>
+<div class="rob noprint" id="roBanner" style="display:none">Read-only access: you can view and print data for your office but cannot change it.</div>
 <section class="sec" id="s_dash"><div class="row"><div><label>आर्थिक वर्ष (starts)</label><select id="dfy"></select></div></div><div class="kpis" id="kp"></div>
 <div class="card"><h2>Monthly collection vs target</h2><canvas id="c1"></canvas></div><div class="card"><h2>Daily collection, latest month</h2><canvas id="c2"></canvas></div></section>
 
@@ -71,20 +84,34 @@ td input{width:100%;min-width:90px;text-align:right}.ctr{text-align:center}canva
 <section class="sec" id="s_tgt"><div class="card"><h2>Targets (Rs thousand) and month lengths</h2><div class="row"><div><label>आर्थिक वर्ष (fiscal year)</label><select id="tfy"></select></div></div><p style="margin:0 0 8px;color:var(--mut)">Paste rows from your target sheet: head code then 12 monthly values (Shrawan to Ashadh), or type directly.</p><textarea id="tp" style="height:70px"></textarea><div class="row" style="margin-top:6px"><button class="b" id="tgo">Load pasted targets</button><button class="b g" id="tsave">Save table</button><span class="msg" id="tmsg"></span></div><div class="wrap"><table id="tt"></table></div></div></section>
 <section class="sec" id="s_set">
 <div class="card"><h2>Office and sub-offices</h2><div class="row"><div><label>Office name</label><input id="on" size="34"></div><div><label>Office address</label><input id="oad" size="34"></div></div><div class="row"><div><label>Bank name (for bank letter)</label><input id="bn" size="34"></div><div><label>Bank branch / address</label><input id="ba" size="34"></div></div><div class="wrap"><table id="ot"></table></div><div class="row" style="margin-top:8px"><button class="b g" id="oadd">Add sub-office</button><button class="b" id="osave">Save</button><span class="msg" id="omsg"></span></div></div>
-<div class="card"><h2>Fiscal years (आर्थिक वर्ष)</h2><p style="margin:0 0 8px;color:var(--mut)">Each fiscal year runs Shrawan to Ashadh and has its own targets and month lengths (set in the Targets tab). A year is also created automatically when you save or import data dated in it.</p><div class="wrap"><table id="ft"></table></div><div class="row" style="margin-top:8px"><div><label>Start year (BS), e.g. 2083 for 2083/84</label><input id="fya" size="6"></div><label style="display:flex;gap:6px;align-items:center;margin:0 0 6px"><input type="checkbox" id="fyc" checked style="width:auto"> copy targets from previous year</label><button class="b" id="fyadd">Add fiscal year</button><span class="msg" id="fmsg"></span></div></div>
+<div class="card"><h2>Fiscal years (आर्थिक वर्ष)</h2><p style="margin:0 0 8px;color:var(--mut)">Each fiscal year runs Shrawan to Ashadh and has its own targets and month lengths (set in the Targets tab). A year is also created automatically when you save or import data dated in it.</p><div class="wrap"><table id="ft"></table></div><div class="row" style="margin-top:8px"><div><label>Start year (BS), e.g. 2083 for 2083/84</label><input id="fya" size="6"></div></div>
+<label>Days in each month for the new year (Shrawan to Ashadh) – editable</label><div class="fyd" id="fyd"></div>
+<div class="row"><label style="display:flex;gap:6px;align-items:center;margin:0 0 6px"><input type="checkbox" id="fyc" checked style="width:auto"> copy targets from previous year</label><button class="b" id="fyadd">Add fiscal year</button><span class="msg" id="fmsg"></span></div></div>
 <div class="card"><h2>Revenue codes and heads</h2><p style="margin:0 0 8px;color:var(--mut)">Add, rename or reorder revenue heads. The order here is the order in the entry grid and reports. Changing a code does not move amounts already saved under the old code.</p><div class="wrap"><table id="ht"></table></div><div class="row" style="margin-top:8px"><button class="b g" id="hadd">Add revenue head</button><button class="b" id="hsave">Save heads</button><span class="msg" id="hmsg"></span></div></div>
 <div class="card"><h2>Import from Excel</h2><p style="margin:0 0 8px;color:var(--mut)">Choose your workbook. The sheet <b>108_Entry</b> (Date, RevHead, name, office columns) is read; existing dates are overwritten. A <b>Deposit</b> sheet is read too if present.</p><input type="file" id="xf" accept=".xlsx,.xls,.csv"><div class="msg" id="xmsg"></div></div>
 <div class="card"><button class="b g" id="wipe">Clear all data</button></div></section>
+<section class="sec" id="s_admin">
+<div class="card"><h2>Offices (कार्यालय)</h2><p style="margin:0 0 8px;color:var(--mut)">Every office has its own separate data, targets, fiscal years and sub-offices. Deactivating an office blocks its users without deleting anything.</p><div class="wrap"><table id="aot"></table></div>
+<div class="row" style="margin-top:8px"><div><label>New office name</label><input id="aon" size="30"></div><div><label>Address</label><input id="aoa" size="30"></div><button class="b" id="aoadd">Add office</button><span class="msg" id="aomsg"></span></div></div>
+<div class="card"><h2>Users (प्रयोगकर्ता)</h2><p style="margin:0 0 8px;color:var(--mut)">Each user belongs to exactly one office and sees only that office. To transfer a user, change their office and press Save; they see the new office after their next sign-in or <b>Sync now</b>. <b>Read-only</b> users can view and print but not change data.</p><div class="wrap"><table id="aut"></table></div>
+<h2 style="margin-top:14px">Add user</h2><div class="row"><div><label>Email</label><input id="aue" type="email" size="28"></div><div><label>Name</label><input id="aun" size="20"></div><div><label>Password (if creating login)</label><input id="aup" type="text" size="14" autocomplete="off"></div></div>
+<div class="row"><div><label>Office</label><select id="auo"></select></div><div><label>Access</label><select id="aum"><option value="edit">Edit</option><option value="read">Read-only</option></select></div><button class="b" id="auadd">Create login and assign</button><button class="b g" id="auadd2">Assign existing login</button><span class="msg" id="aumsg"></span></div>
+<p style="margin:4px 0 0;color:var(--mut);font-size:13px">“Create login and assign” makes a new sign-in (password at least 6 characters). If your Supabase project has sign-ups switched off, create the login in Supabase → Authentication → Users and then use “Assign existing login”.</p></div>
+</section>
 </main>
 </div>
 
 <script>
 const SUPABASE_URL = 'https://nsxldeaiilclkqynqfvg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_2Y6WjB5KKSSxe6LlYBYCZQ_SOzneKjT';
-const DOC_ID = 'main_customs_revenue';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
+let profile = null;        // row from app_profiles
+let currentOffice = null;  // {id,name,address,active}
+let isAdmin = false;
+let canEdit = true;
+const docId=()=>currentOffice?'office_'+currentOffice.id:null;
 
 const MN=['श्रावण','भाद्र','असोज','कार्तिक','मंसिर','पुष','माघ','फाल्गुण','चैत्र','बैशाख','जेष्ठ','आषाढ'],MNUM=[4,5,6,7,8,9,10,11,12,1,2,3];
 const DEF_HEADS=[[11511,'IM','भन्सार महशुल - आयात'],[11521,'EX','भन्सार महशुल - निर्यात'],[11562,'CSF','भन्सार सम्वन्धी अन्य आय'],[11522,'CSF_EX','निर्यात सेवा शुल्क'],[11561,'ARF','कृषि सुधार शुल्क'],[11422,'ECS','अन्त:शुल्क आयात'],[11453,'RCF','सडक मर्मत तथा सुधार दस्तुर'],[11454,'RDF','सडक निर्माण तथा संभार कर'],[11455,'IFT','पूर्वाधार कर'],[11114,'AIT','कृषि आयमा लाग्ने कर'],[11424,'HHT','स्वास्थ्य जोखिम कर बैदेशिक उत्पादन'],['IDP','IDP','IDP'],[33312,'VAT','मु.अ.कर - आयात'],[11412,'LUF','विलासिता शुल्क'],[11515,'GT','हरित कर'],[11111,'','एकलौटी फर्म तथा व्यक्तिगत आयमा लाग्ने कर'],[11113,'','पूँजीगत लाभकर'],[11115,'','आकस्मिक लाभकर (व्यक्तिगत)'],[14229,'','अन्य प्रशासनिक सेवा शुल्क'],[14313,'','धरौटी सदरस्याह'],[15111,'','बेरुजु'],[14212,'','सरकारी सम्पत्तिको विक्रिबाट प्राप्त रकम'],[11452,'','वस्तुको उपयोग तथा उपयोगको अनुमतिमा लाग्ने कर'],[11123,'','निकायको मुनाफामा लाग्ने कर'],[33331,'','अन्त:शुल्क सूर्तिजन्य पदार्थ'],[11462,'','स्वास्थ्य जोखिम कर आयात'],[33313,'','मु.अ.कर - वस्तु विक्रि र वितरण']].map(h=>({code:String(h[0]),abbr:h[1],name:h[2]}));
@@ -92,10 +119,12 @@ const JAS=['11511','11521','11562','11522','11561','11422','11453','11454','1145
 const EXTRA={'IM TOTAL':'11511','EX TOTAL':'11521','CVF':'11511'};const H=()=>S.heads.filter(h=>h.code);
 function al(x){const u=String(x==null?'':x).trim().toUpperCase();if(!u)return null;if(EXTRA[u])return EXTRA[u];const h=H().find(h=>h.code.toUpperCase()===u||(h.abbr&&h.abbr.toUpperCase()===u));return h?h.code:null}
 const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
-const KEY='customs_rev_v2';
+const KEY='customs_rev_v2';const lkey=()=>KEY+'_'+(currentOffice?currentOffice.id:'none');
 const DEFMD=[31,31,31,30,29,30,29,30,30,31,31,32];
 const def=()=>({unit:1000,heads:DEF_HEADS.map(h=>({...h})),office:'',address:'',bank:'',bankAddr:'',offices:[{code:'OFF01',name:''}],E:{},D:{},fys:{2082:{mdays:[...DEFMD],T:{}}}});
-let S;try{S=Object.assign(def(),JSON.parse(localStorage.getItem(KEY)))}catch(e){S=def()}
+let S=def();
+function loadLocal(){try{const raw=localStorage.getItem(lkey());S=raw?Object.assign(def(),JSON.parse(raw)):def()}catch(e){S=def()}}
+function clearLocalAll(){try{Object.keys(localStorage).filter(k=>k.indexOf(KEY)===0).forEach(k=>localStorage.removeItem(k))}catch(e){}}
 const UN={1:'रु.',1000:'रु. हजारमा',100000:'रु. लाखमा'};const ul=()=>UN[+S.unit||1];
 const fu=v=>{if(v==null||v==='')return '';const u=+S.unit||1;return Number(v/u).toLocaleString('en-IN',{minimumFractionDigits:u>1?2:0,maximumFractionDigits:u>1?2:0})};const nu=v=>Math.round((v||0)/(+S.unit||1)*100)/100;
 const OF=()=>S.office||'(set office name in Settings)';const AD=()=>S.address?'<br>'+S.address:'';
@@ -109,14 +138,15 @@ function setSyncText(txt,isErr=false){
   el.style.color=isErr?'var(--acc)':'var(--mut)';
 }
 
-function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function saveLocal(){try{if(currentOffice)localStorage.setItem(lkey(),JSON.stringify(S))}catch(e){}}
 
 async function saveCloud(){
-  if(!currentUser){setSyncText('Local only',true);return false}
+  if(!currentUser||!currentOffice){setSyncText('Local only',true);return false}
+  if(!canEdit){setSyncText('Read-only',true);return false}
   setSyncText('Saving to Supabase...');
   const payload=JSON.parse(JSON.stringify(S));
   const {error}=await sb.from('revenue_state').upsert({
-    id:DOC_ID,
+    id:docId(),
     data:payload,
     updated_at:new Date().toISOString()
   },{onConflict:'id'});
@@ -130,12 +160,12 @@ async function saveCloud(){
   return true;
 }
 
-function save(){saveLocal();return saveCloud()}
+function save(){if(!canEdit){alert('You have read-only access to this office.');return Promise.resolve(false)}saveLocal();return saveCloud()}
 
 async function loadCloud(){
-  if(!currentUser)return false;
+  if(!currentUser||!currentOffice)return false;
   setSyncText('Loading...');
-  const {data,error}=await sb.from('revenue_state').select('data').eq('id',DOC_ID).maybeSingle();
+  const {data,error}=await sb.from('revenue_state').select('data').eq('id',docId()).maybeSingle();
   if(error){
     console.error('Supabase loadCloud error:',error);
     setSyncText('Load error',true);
@@ -150,10 +180,14 @@ async function loadCloud(){
     S.E=data.data.E||{};
     S.D=data.data.D||{};
     S.fys=data.data.fys||base.fys;
+    if(!S.office)S.office=currentOffice.name||'';
+    if(!S.address)S.address=currentOffice.address||'';
     saveLocal();
     setSyncText('Synced');
   }else{
-    await saveCloud();
+    S=def();S.office=currentOffice.name||'';S.address=currentOffice.address||'';
+    saveLocal();
+    if(canEdit)await saveCloud();else setSyncText('No data yet');
   }
   return true;
 }
@@ -183,7 +217,9 @@ function tgt(y,mi){let t=0;const T=(S.fys[y]||{T:{}}).T;H().forEach(h=>{t+=(T[h.
 const tgtFY=y=>MN.reduce((s,_,i)=>s+tgt(y,i),0);
 const TABS=[['dash','ड्यासबोर्ड Dashboard'],['entry','दैनिक प्रविष्टि Entry'],['daily','दैनिक टिपोट Daily report'],['bank','बैंक पत्र Bank letter'],['month','मासिक Monthly'],['tgt','लक्ष्य Targets'],['set','सेटिङ Settings']];
 $('nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
-let cur='dash';function go(t){cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({dash,entry,daily,bank,month,tgt:tgtUI,set:setUI})[t]()}
+let cur='dash';function go(t){cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));if(t==='admin'&&!isAdmin)t='dash';if(!currentOffice&&t!=='admin'){t='admin'}
+  cur=t;document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s_'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  ({dash,entry,daily,bank,month,tgt:tgtUI,set:setUI,admin:adminUI})[t]();lockIfReadOnly()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.t));
 const last=()=>dates().pop()||(fyList().pop()+'.04.01');
 function shift(d,k){const ds=dates();let i=ds.indexOf(d);if(i<0){return k>0?ds.find(x=>x>d)||d:[...ds].reverse().find(x=>x<d)||d}return ds[Math.min(ds.length-1,Math.max(0,i+k))]}
@@ -193,9 +229,14 @@ function dash(){const ys=fyList();opts($('dfy'),ys.map(y=>[y,fyLbl(y)]),$('dfy')
   const y=+$('dfy').value,[a,b]=fyRange(y),mo=Array(12).fill(0);const ds=dates().filter(x=>x>=a&&x<=b);
   ds.forEach(x=>{mo[mIdx(x)]+=sum(Object.values(S.E[x]).map(sum))});
   const tg=MN.map((_,i)=>tgt(y,i)*1000),tot=sum(mo),T=sum(tg);
-  $('kp').innerHTML=[[`वार्षिक लक्ष्य FY target (${ul()})`,fu(T)],[`असुली Collected (${ul()})`,fu(tot)],['प्रतिशत Achievement',T?(tot/T*100).toFixed(2)+'%':'–'],['Latest date',ds.length?ds[ds.length-1]:'–']].map(x=>`<div class="kpi">${x[0]}<b>${x[1]}</b></div>`).join('');
+  const pc=mo.map((v,i)=>tg[i]?+(v/tg[i]*100).toFixed(2):null);
+  /* target up to the latest data date: full months before it + part of its own month */
+  const asOf=ds.length?ds[ds.length-1]:null;let tTill=0;
+  if(asOf){const mi=mIdx(asOf),md=((S.fys[y]||{}).mdays||DEFMD)[mi]||30,day=Math.min(+asOf.slice(8),md);for(let i=0;i<mi;i++)tTill+=tg[i];tTill+=tg[mi]*day/md}
+  const cTill=tot;
+  $('kp').innerHTML=[[`वार्षिक लक्ष्य FY target (${ul()})`,fu(T)],[`असुली Collected (${ul()})`,fu(tot)],['वार्षिक प्रतिशत Yearly achievement (collection till today ÷ yearly target)',T?(tot/T*100).toFixed(2)+'%':'–'],[`आजसम्मको लक्ष्य Target till today (${ul()})`,asOf?fu(tTill):'–'],['आजसम्मको प्रतिशत Achievement till today (collection till today ÷ target till today)',asOf&&tTill?(cTill/tTill*100).toFixed(2)+'%':'–'],['Latest date (“today”)',asOf||'–']].map(x=>`<div class="kpi">${x[0]}<b>${x[1]}</b></div>`).join('');
   const css=getComputedStyle(document.documentElement);if(ch1)ch1.destroy();
-  ch1=new Chart($('c1'),{type:'bar',data:{labels:MN,datasets:[{label:'Collected ('+ul()+')',data:mo.map(nu),backgroundColor:css.getPropertyValue('--acc2')},{type:'line',label:'Target',data:tg.map(nu),borderColor:css.getPropertyValue('--acc'),tension:.2}]},options:{responsive:true}});
+  ch1=new Chart($('c1'),{type:'bar',data:{labels:MN.map((m,i)=>[m,pc[i]==null?'–':pc[i].toFixed(1)+'%']),datasets:[{label:'Collected ('+ul()+')',data:mo.map(nu),backgroundColor:css.getPropertyValue('--acc2'),yAxisID:'y',order:2},{type:'line',label:'Target',data:tg.map(nu),borderColor:css.getPropertyValue('--acc'),tension:.2,yAxisID:'y',order:1},{type:'line',label:'Collection % of target',data:pc,borderColor:css.getPropertyValue('--ok'),backgroundColor:css.getPropertyValue('--ok'),borderDash:[5,4],pointStyle:'rectRot',pointRadius:5,tension:.2,yAxisID:'y1',order:0,spanGaps:true}]},options:{responsive:true,interaction:{mode:'index',intersect:false},scales:{y:{position:'left',title:{display:true,text:ul()}},y1:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:'%'},ticks:{callback:v=>v+'%'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y1'?(c.dataset.label+': '+(c.parsed.y==null?'–':c.parsed.y.toFixed(2)+'%')):(c.dataset.label+': '+Number(c.parsed.y).toLocaleString('en-IN'))}}}}});
   const lm=ds.length?ds[ds.length-1].slice(0,7):null,dd=ds.filter(x=>x.slice(0,7)===lm);if(ch2)ch2.destroy();
   ch2=new Chart($('c2'),{type:'line',data:{labels:dd.map(x=>x.slice(8)),datasets:[{label:(lm||'')+' ('+ul()+')',data:dd.map(x=>nu(sum(Object.values(S.E[x]).map(sum)))),borderColor:css.getPropertyValue('--acc'),tension:.2}]},options:{responsive:true}})}
 $('dfy').onchange=dash;
@@ -238,7 +279,7 @@ function bank(){const d=nd($('bd').value)||last();$('bd').value=d;$('bd').onchan
   const hd=['सि.नं.','बजेट संकेत','शिर्षक',...S.offices.map(o=>(o.code+' '+o.name).trim()),`कुल जम्मा (${ul()})`];
   const top=['नेपाल सरकार','अर्थ मन्त्रालय','भन्सार विभाग',OF(),S.address||''],to=[S.bank||'(set bank name in Settings)',S.bankAddr||''],para=`यस कार्यालयबाट मिति ${d} मा असुली गरिएको राजस्व तपशिल बमोजिम राजस्व खातामा जम्मा गरिदिनुहुन अनुरोध छ ।`;
   LB={d,aoa:[...top.map(x=>[x]),[],['पत्रसंख्या: '+($('bno').value||'')+' च.नं.','','मिति: '+d],[],...to.map(x=>[x]),[],['विषय: राजस्व जम्मा गरिदिने सम्बन्धमा ।'],[para],['रकम: '+ul()],hd,...data.map(r=>r.map((v,i)=>i<3?v:nu(v))),['जम्मा','','',...T.map(nu),nu(sum(T))],['बैंक दाखिला Bank deposit','','',...dep.map(nu),nu(sum(dep))]]};
-  $('bank').innerHTML=`<b>${top[0]}<br>${top[1]}<br>${top[2]}<br>${OF()}</b>${AD()}<p>पत्रसंख्या: ${$('bno').value||''} च.नं. <span style="float:right">मिति: ${d}</span></p><p>${to[0]}${to[1]?'<br>'+to[1]:''}</p><p><b>विषय: राजस्व जम्मा गरिदिने सम्बन्धमा ।</b></p><p>${para}</p>
+  $('bank').innerHTML=`<div class="ctr"><b>${top[0]}<br>${top[1]}<br>${top[2]}<br>${OF()}</b>${AD()}</div><p>पत्रसंख्या: ${$('bno').value||''} च.नं. <span style="float:right">मिति: ${d}</span></p><p>${to[0]}${to[1]?'<br>'+to[1]:''}</p><p><b>विषय: राजस्व जम्मा गरिदिने सम्बन्धमा ।</b></p><p>${para}</p>
   <div class="wrap"><table><tr>${hd.map((x,i)=>`<th class="${i>2?'n':''}">${x}</th>`).join('')}</tr>${data.map(r=>`<tr>${r.map((v,i)=>`<td class="${i>2?'n':''}">${i>2?fu(v):v}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${hd.length}">No data for this date.</td></tr>`}<tr class="t"><td colspan="3">जम्मा</td>${T.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(T))}</td></tr><tr><td colspan="3">बैंक दाखिला Bank deposit</td>${dep.map(v=>`<td class="n">${fu(v)}</td>`).join('')}<td class="n">${fu(sum(dep))}</td></tr></table></div>`}
 function month(){const ys=fyList();opts($('mfy'),ys.map(y=>[y,fyLbl(y)]),$('mfy').value||ys[ys.length-1]);$('mfy').onchange=month;
   const y=+$('mfy').value,[a,b]=fyRange(y),M=MN.map(()=>({}));const used=new Set();
@@ -252,10 +293,12 @@ function tgtUI(){const ys=fyList();opts($('tfy'),ys.map(y=>[y,fyLbl(y)]),$('tfy'
 function readT(){const f=ensureK(+$('tfy').value);document.querySelectorAll('#tt input[data-tc]').forEach(i=>{const c=i.dataset.tc;(f.T[c]=f.T[c]||Array(12).fill(0))[+i.dataset.m]=parseFloat(i.value)||0});document.querySelectorAll('#tt input[data-md]').forEach(i=>f.mdays[+i.dataset.md]=parseInt(i.value)||30)}
 $('tsave').onclick=async()=>{readT();const ok=await save();$('tmsg').textContent='Saved for '+fyLbl(+$('tfy').value)+(ok?' to Supabase.':' locally.')};
 $('tgo').onclick=async()=>{const f=ensureK(+$('tfy').value);let n=0;$('tp').value.split(/\r?\n/).forEach(l=>{const p=l.split(/\t/).map(x=>x.trim());const c=al(p[0]);if(!c)return;f.T[c]=Array.from({length:12},(_,i)=>parseFloat(String(p[1+i]).replace(/,/g,''))||0);n++});const ok=await save();tgtUI();$('tmsg').textContent=n+' heads loaded for '+fyLbl(+$('tfy').value)+(ok?' and synced.':' (local).')};
+function fyDaysFill(y){const ks=Object.keys(S.fys).map(Number).sort((a,b)=>a-b),pk=ks.filter(k=>k<y).pop(),src=(pk!=null?S.fys[pk].mdays:null)||(ks.length?S.fys[ks[ks.length-1]].mdays:null)||DEFMD;$('fyd').innerHTML=MN.map((m,i)=>`<div><label>${m}</label><input data-fd="${i}" value="${src[i]}"></div>`).join('')}
+$('fya').oninput=()=>{const y=parseInt($('fya').value);if(y>=2000&&y<=2200)fyDaysFill(y)};
 function fyUI(){const cnt=y=>dates().filter(d=>fyStart(d)===y).length;$('ft').innerHTML='<tr><th>Fiscal year</th><th>Days with data</th><th>Days in each month (Shrawan to Ashadh)</th><th></th></tr>'+fyList().map(y=>`<tr><td>${fyLbl(y)}</td><td>${cnt(y)}</td><td>${(ensureK(y).mdays).join(', ')}</td><td><button class="b g" data-fyd="${y}">Delete</button></td></tr>`).join('')}
 function readH(){document.querySelectorAll('#ht tr[data-i]').forEach(tr=>{const g=k=>tr.querySelector(`[data-k="${k}"]`).value.trim();S.heads[+tr.dataset.i]={code:g('code'),abbr:g('abbr'),name:g('name')}})}
 function headUI(){$('ht').innerHTML='<tr><th></th><th>Revenue code</th><th>Short name</th><th>Revenue head (description)</th><th></th></tr>'+S.heads.map((h,i)=>`<tr data-i="${i}"><td><button class="b g" data-up="${i}">↑</button></td><td><input data-k="code" value="${esc(h.code)}" style="text-align:left"></td><td><input data-k="abbr" value="${esc(h.abbr)}" style="text-align:left"></td><td><input data-k="name" value="${esc(h.name)}" style="text-align:left;min-width:280px"></td><td><button class="b g" data-del="${i}">Delete</button></td></tr>`).join('')}
-function setUI(){fyUI();headUI();$('on').value=S.office;$('oad').value=S.address;$('bn').value=S.bank;$('ba').value=S.bankAddr;$('ot').innerHTML='<tr><th>Code</th><th>Name</th></tr>'+S.offices.map((o,i)=>`<tr><td><input data-oc="${i}" value="${o.code}"></td><td><input data-on="${i}" value="${o.name}" style="text-align:left"></td></tr>`).join('')}
+function setUI(){fyUI();headUI();if(!$('fyd').children.length){const ks=fyList();fyDaysFill((ks.length?ks[ks.length-1]:2082)+1)}$('on').value=S.office;$('oad').value=S.address;$('bn').value=S.bank;$('ba').value=S.bankAddr;$('ot').innerHTML='<tr><th>Code</th><th>Name</th></tr>'+S.offices.map((o,i)=>`<tr><td><input data-oc="${i}" value="${o.code}"></td><td><input data-on="${i}" value="${o.name}" style="text-align:left"></td></tr>`).join('')}
 $('oadd').onclick=async()=>{S.offices.push({code:'OFF'+(S.offices.length+1),name:''});await save();setUI()};
 $('osave').onclick=async()=>{S.office=$('on').value.trim();S.address=$('oad').value.trim();S.bank=$('bn').value.trim();S.bankAddr=$('ba').value.trim();S.offices.forEach((o,i)=>{o.code=document.querySelector(`[data-oc="${i}"]`).value;o.name=document.querySelector(`[data-on="${i}"]`).value});const ok=await save();$('ofcName').textContent=S.office?'· '+S.office:'';$('omsg').textContent=ok?'Settings saved to Supabase.':'Saved locally.';setUI()};
 $('xf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'});const sn=wb.SheetNames.find(s=>/108_?entry/i.test(s))||wb.SheetNames[0];
@@ -263,7 +306,7 @@ $('xf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileRead
   while(S.offices.length<Math.min(oc,5))S.offices.push({code:'OFF'+(S.offices.length+1),name:''});
   const n=ingest(rows);let m='Imported '+n+' rows from '+sn+'.';const ds=wb.SheetNames.find(s=>/^deposit$/i.test(s));if(ds){m+=' Deposits: '+ingestDep(XLSX.utils.sheet_to_json(wb.Sheets[ds],{header:1,raw:false,defval:''}))+' days.'}
   await save();$('xmsg').className='msg'+(n?'':' err');$('xmsg').textContent=n?m:'No rows found. Expected columns: Date, RevHead, name, office amounts.'}catch(x){$('xmsg').className='msg err';$('xmsg').textContent='Could not read that file.'}};r.readAsArrayBuffer(f)};
-$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='revenue-backup.json';a.click()};
+$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='revenue-backup'+(currentOffice?'-'+currentOffice.id:'')+'.json';a.click()};
 $('bk').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{S=Object.assign(def(),JSON.parse(ev.target.result));await save();go('dash')}catch(x){alert('Not a valid backup file.')}};r.readAsText(f)};
 $('wipe').onclick=async()=>{if(confirm('Delete ALL saved data in browser and Supabase?')){S=def();await save();go('set')}};
 
@@ -272,11 +315,17 @@ document.addEventListener('click',async e=>{const t=e.target;if(!t.dataset)retur
  if(t.dataset.up!==undefined){readH();const i=+t.dataset.up;if(i>0)[S.heads[i-1],S.heads[i]]=[S.heads[i],S.heads[i-1]];headUI()}
  if(t.dataset.del!==undefined){readH();const i=+t.dataset.del,h=S.heads[i],used=Object.values(S.E).some(x=>x[h.code]);if(confirm('Delete revenue head '+(h.code||'(blank)')+'?'+(used?' Saved amounts under this code stay stored but will no longer appear in reports.':''))){S.heads.splice(i,1);headUI()}}});
 $('fyadd').onclick=async()=>{const y=parseInt($('fya').value),m=$('fmsg');if(!(y>=2000&&y<=2200)){m.className='msg err';m.textContent='Enter a start year such as 2083.';return}if(S.fys[y]){m.className='msg err';m.textContent=fyLbl(y)+' already exists.';return}
- const ks=Object.keys(S.fys).map(Number).sort((a,b)=>a-b),pv=S.fys[ks.filter(k=>k<y).pop()],f=ensureK(y);if($('fyc').checked&&pv)f.T=JSON.parse(JSON.stringify(pv.T));const ok=await save();m.className='msg';m.textContent=fyLbl(y)+' added'+(ok?' and synced.':' (local).');$('fya').value='';fyUI()};
+ const ks=Object.keys(S.fys).map(Number).sort((a,b)=>a-b),pv=S.fys[ks.filter(k=>k<y).pop()],f=ensureK(y);const dv=[...document.querySelectorAll('#fyd input[data-fd]')].map(i=>parseInt(i.value));if(dv.length!==12||dv.some(v=>!(v>=28&&v<=32))){delete S.fys[y];m.className='msg err';m.textContent='Each month needs between 28 and 32 days.';return}f.mdays=dv;if($('fyc').checked&&pv)f.T=JSON.parse(JSON.stringify(pv.T));const ok=await save();m.className='msg';m.textContent=fyLbl(y)+' added'+(ok?' and synced.':' (local).');$('fya').value='';$('fyd').innerHTML='';fyUI();setUI()};
 $('hadd').onclick=()=>{readH();S.heads.push({code:'',abbr:'',name:''});headUI()};
 $('hsave').onclick=async()=>{readH();const c=S.heads.map(h=>h.code);if(c.some(x=>!x)||new Set(c).size!==c.length){$('hmsg').className='msg err';$('hmsg').textContent='Every head needs a unique revenue code.';return}const ok=await save();$('hmsg').className='msg';$('hmsg').textContent='Saved'+(ok?' to Supabase.':' locally.')};
 $('unit').value=S.unit;$('unit').onchange=async()=>{S.unit=+$('unit').value;await save();go(cur)};
-$('syncNow').onclick=async()=>{await loadCloud();$('ofcName').textContent=S.office?'· '+S.office:'';go(cur)};
+$('syncNow').onclick=async()=>{
+  const prev=currentOffice?currentOffice.id:null;
+  const msg=await resolveAccess();
+  if(msg){noAccess(msg);return}
+  if(!currentOffice){applyAccessUI();go('admin');return}
+  if(currentOffice.id!==prev){S=def();}
+  await openOffice();go(cur==='admin'&&!isAdmin?'dash':cur)};
 
 function prn(land){let st=document.getElementById('pgst');if(!st){st=document.createElement('style');st.id='pgst';document.head.appendChild(st)}st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:12mm}`;print()}
 async function pdf(html,name,land){const W=land?1123:794,w=document.createElement('div');w.className='pdfwrap';
@@ -295,19 +344,148 @@ $('lBtn').onclick=async()=>{
   if(error){$('lErr').textContent=error.message;return}
   await bootApp();
 };
-$('outBtn').onclick=async()=>{await sb.auth.signOut();currentUser=null;$('appShell').style.display='none';$('loginBox').style.display='block'};
+async function doSignOut(){await sb.auth.signOut();currentUser=null;profile=null;currentOffice=null;isAdmin=false;canEdit=true;S=def();clearLocalAll();$('appShell').style.display='none';$('noAccess').style.display='none';$('loginBox').style.display='block';$('lPass').value=''}
+$('outBtn').onclick=doSignOut;$('noAccessOut').onclick=doSignOut;
+
+/* ================= Admin page ================= */
+const aEsc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const newOfficeId=()=>'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+let A_OFF=[],A_USR=[];
+async function adminLoad(){
+  const [o,u]=await Promise.all([sb.from('app_offices').select('*').order('name'),sb.from('app_profiles').select('*').order('email')]);
+  if(o.error||u.error){$('aomsg').className='msg err';$('aomsg').textContent=(o.error||u.error).message;return false}
+  A_OFF=o.data||[];A_USR=u.data||[];window._offices=A_OFF;return true;
+}
+async function adminUI(){
+  if(!isAdmin)return;
+  if(!(await adminLoad()))return;
+  const cnt=id=>A_USR.filter(u=>u.office_id===id&&u.role!=='admin').length;
+  $('aot').innerHTML='<tr><th>Office ID</th><th>Name</th><th>Address</th><th class="n">Users</th><th>Status</th><th></th></tr>'+A_OFF.map(o=>`<tr data-oid="${aEsc(o.id)}"><td>${aEsc(o.id)}</td><td><input class="l" data-f="name" value="${aEsc(o.name)}"></td><td><input class="l" data-f="address" value="${aEsc(o.address)}"></td><td class="n">${cnt(o.id)}</td><td><span class="pill ${o.active?'ok':'no'}">${o.active?'Active':'Inactive'}</span></td><td style="white-space:nowrap"><button class="b g" data-aosave="${aEsc(o.id)}">Save</button> <button class="b g" data-aotog="${aEsc(o.id)}">${o.active?'Deactivate':'Activate'}</button> <button class="b g" data-aodel="${aEsc(o.id)}">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No offices yet. Add the first one below.</td></tr>';
+  const optsO=(sel)=>'<option value="">— none —</option>'+A_OFF.filter(o=>o.active||o.id===sel).map(o=>`<option value="${aEsc(o.id)}" ${o.id===sel?'selected':''}>${aEsc(o.name)}${o.active?'':' (inactive)'}</option>`).join('');
+  $('aut').innerHTML='<tr><th>Email</th><th>Name</th><th>Office</th><th>Access</th><th>Status</th><th></th></tr>'+A_USR.map(u=>u.role==='admin'?`<tr><td>${aEsc(u.email)}</td><td>${aEsc(u.full_name)}</td><td colspan="2">Administrator (can open any office from the header list)</td><td><span class="pill ok">Admin</span></td><td></td></tr>`:`<tr data-uem="${aEsc(u.email)}"><td>${aEsc(u.email)}</td><td><input class="l" data-f="full_name" value="${aEsc(u.full_name)}"></td><td><select data-f="office_id">${optsO(u.office_id)}</select></td><td><select data-f="mode"><option value="edit" ${u.mode==='edit'?'selected':''}>Edit</option><option value="read" ${u.mode==='read'?'selected':''}>Read-only</option></select></td><td><label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" data-f="active" style="width:auto" ${u.active?'checked':''}> Active</label></td><td style="white-space:nowrap"><button class="b g" data-ausave="${aEsc(u.email)}">Save</button> <button class="b g" data-audel="${aEsc(u.email)}">Remove</button></td></tr>`).join('');
+  $('auo').innerHTML=A_OFF.filter(o=>o.active).map(o=>`<option value="${aEsc(o.id)}">${aEsc(o.name)}</option>`).join('');
+}
+function rowVal(tr,f){const e=tr.querySelector(`[data-f="${f}"]`);return e.type==='checkbox'?e.checked:e.value}
+function amsg(id,t,err){const e=$(id);e.className='msg'+(err?' err':'');e.textContent=t}
+
+$('aoadd').onclick=async()=>{
+  const name=$('aon').value.trim();if(!name){amsg('aomsg','Enter an office name.',1);return}
+  const id=newOfficeId(),address=$('aoa').value.trim();
+  const {error}=await sb.from('app_offices').insert({id,name,address,active:true});
+  if(error){amsg('aomsg',error.message,1);return}
+  const d=def();d.office=name;d.address=address;
+  const r=await sb.from('revenue_state').upsert({id:'office_'+id,data:d,updated_at:new Date().toISOString()},{onConflict:'id'});
+  if(r.error){amsg('aomsg','Office created, but its data record failed: '+r.error.message,1)}else amsg('aomsg','Office added.');
+  $('aon').value='';$('aoa').value='';await adminUI();applyAccessUI();
+};
+$('auadd').onclick=()=>addUser(true);$('auadd2').onclick=()=>addUser(false);
+async function addUser(create){
+  const email=$('aue').value.trim().toLowerCase(),name=$('aun').value.trim(),pw=$('aup').value,office=$('auo').value,mode=$('aum').value;
+  if(!/^\S+@\S+\.\S+$/.test(email)){amsg('aumsg','Enter a valid email.',1);return}
+  if(!office){amsg('aumsg','Choose an office (add one first).',1);return}
+  let note='';
+  if(create){
+    if(pw.length<6){amsg('aumsg','Password must be at least 6 characters.',1);return}
+    /* separate client so the administrator stays signed in */
+    const tmp=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'tmp-signup'}});
+    const {data,error}=await tmp.auth.signUp({email,password:pw});
+    if(error){
+      if(/already/i.test(error.message))note=' Login already existed; kept its current password.';
+      else{amsg('aumsg','Could not create the login: '+error.message+'. Create it in Supabase → Authentication → Users, then use “Assign existing login”.',1);return}
+    }else if(data&&data.user&&!data.session)note=' A confirmation email may need to be opened before first sign-in.';
+  }
+  const {error}=await sb.from('app_profiles').upsert({email,full_name:name,role:'user',mode,office_id:office,active:true},{onConflict:'email'});
+  if(error){amsg('aumsg',error.message,1);return}
+  amsg('aumsg','User assigned.'+note);$('aue').value='';$('aun').value='';$('aup').value='';await adminUI();
+}
+document.addEventListener('click',async e=>{const t=e.target;if(!t.dataset||!isAdmin)return;
+  if(t.dataset.aosave){const tr=t.closest('tr'),id=t.dataset.aosave,name=rowVal(tr,'name').trim();if(!name){amsg('aomsg','Name cannot be empty.',1);return}
+    const {error}=await sb.from('app_offices').update({name,address:rowVal(tr,'address').trim()}).eq('id',id);amsg('aomsg',error?error.message:'Office saved.',!!error);if(!error){await adminUI();applyAccessUI()}}
+  if(t.dataset.aotog){const o=A_OFF.find(x=>x.id===t.dataset.aotog);const {error}=await sb.from('app_offices').update({active:!o.active}).eq('id',o.id);amsg('aomsg',error?error.message:(o.active?'Office deactivated.':'Office activated.'),!!error);if(!error){await adminUI();if(currentOffice&&currentOffice.id===o.id&&o.active){const nx=A_OFF.find(x=>x.active&&x.id!==o.id);currentOffice=nx||null;if(nx){await openOffice()}}applyAccessUI()}}
+  if(t.dataset.aodel){const o=A_OFF.find(x=>x.id===t.dataset.aodel);if(A_USR.some(u=>u.office_id===o.id&&u.role!=='admin')){amsg('aomsg','Move or remove this office’s users first.',1);return}
+    if(confirm('Delete office "'+o.name+'" and ALL its saved revenue data? This cannot be undone.')&&confirm('Really delete "'+o.name+'" permanently?')){
+      const a=await sb.from('revenue_state').delete().eq('id','office_'+o.id);if(a.error){amsg('aomsg',a.error.message,1);return}
+      const b=await sb.from('app_offices').delete().eq('id',o.id);if(b.error){amsg('aomsg',b.error.message,1);return}
+      if(currentOffice&&currentOffice.id===o.id){currentOffice=null;S=def()}
+      amsg('aomsg','Office deleted.');await adminUI();applyAccessUI();if(!currentOffice){const nx=A_OFF.find(x=>x.active&&x.id!==o.id);if(nx){currentOffice=nx;await openOffice()}}}}
+  if(t.dataset.ausave){const tr=t.closest('tr'),em=t.dataset.ausave;
+    const {error}=await sb.from('app_profiles').update({full_name:rowVal(tr,'full_name').trim(),office_id:rowVal(tr,'office_id')||null,mode:rowVal(tr,'mode'),active:rowVal(tr,'active')}).eq('email',em);
+    amsg('aumsg',error?error.message:'Saved. If the office changed, the user sees the new office after next sign-in or Sync now.',!!error);if(!error)await adminUI()}
+  if(t.dataset.audel){const em=t.dataset.audel;if(confirm('Remove access for '+em+'? (Their sign-in stays in Supabase but they can no longer open any office.)')){const {error}=await sb.from('app_profiles').delete().eq('email',em);amsg('aumsg',error?error.message:'User removed.',!!error);if(!error)await adminUI()}}
+});
+
+function noAccess(msg){$('loginBox').style.display='none';$('appShell').style.display='none';$('noAccess').style.display='block';$('noAccessMsg').textContent=msg}
+
+/* Works out who the signed-in user is and which single office they may see. */
+async function resolveAccess(){
+  const email=(currentUser.email||'').toLowerCase();
+  const {data:p,error}=await sb.from('app_profiles').select('*').eq('email',email).maybeSingle();
+  if(error)return 'Could not read your access profile ('+error.message+'). Ask the administrator to run the database setup.';
+  if(!p||!p.active)return 'No active access has been set up for '+email+'. Please contact the administrator.';
+  profile=p;isAdmin=p.role==='admin';canEdit=isAdmin||p.mode==='edit';
+  if(isAdmin){
+    const {data:os,error:oe}=await sb.from('app_offices').select('*').order('name');
+    if(oe)return 'Could not read offices ('+oe.message+').';
+    window._offices=os||[];
+    const act=window._offices.filter(o=>o.active);
+    const want=localStorage.getItem('admin_office')||p.office_id;
+    currentOffice=act.find(o=>o.id===want)||act[0]||null;
+    if(!currentOffice){/* admin with no office yet: can still open the Admin page */}
+  }else{
+    if(!p.office_id)return 'You are not assigned to any office yet. Please contact the administrator.';
+    const {data:o,error:oe}=await sb.from('app_offices').select('*').eq('id',p.office_id).maybeSingle();
+    if(oe)return 'Could not read your office ('+oe.message+').';
+    if(!o||!o.active)return 'Your office is not active. Please contact the administrator.';
+    currentOffice=o;
+  }
+  return null;
+}
+
+function applyAccessUI(){
+  $('userBadge').textContent=currentUser.email+' · '+(isAdmin?'Admin':canEdit?'Edit':'Read-only');
+  const sw=$('ofSwitch');
+  if(isAdmin&&window._offices){sw.style.display='';sw.innerHTML=window._offices.filter(o=>o.active).map(o=>`<option value="${aEsc(o.id)}" ${currentOffice&&o.id===currentOffice.id?'selected':''}>${aEsc(o.name)}</option>`).join('')}else sw.style.display='none';
+  const tabs=isAdmin?[...TABS,['admin','प्रशासन Admin']]:TABS;
+  $('nav').innerHTML=tabs.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
+  document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.t));
+  $('ofcName').textContent=currentOffice?(S.office?'· '+S.office:'· '+currentOffice.name):'';
+  $('roBanner').style.display=canEdit?'none':'block';
+}
+
+/* Read-only users: switch off every control that changes data. */
+function lockIfReadOnly(){
+  if(canEdit)return;
+  ['esave','pgo','tgo','tsave','oadd','osave','fyadd','hadd','hsave','wipe','xf'].forEach(id=>{const e=$(id);if(e)e.disabled=true});
+  document.querySelectorAll('#s_entry input:not(#ed),#s_entry textarea,#s_tgt input,#s_tgt textarea,#s_set input,#s_set textarea,#s_set button,#s_tgt button').forEach(e=>e.disabled=true);
+  document.querySelectorAll('button[onclick="bk.click()"]').forEach(e=>e.disabled=true);
+}
+
+async function openOffice(){
+  loadLocal();
+  const ok=await loadCloud();
+  $('unit').value=S.unit;
+  applyAccessUI();
+}
 
 async function bootApp(){
   const {data:{session}}=await sb.auth.getSession();
   currentUser=session?session.user:null;
-  if(!currentUser){$('loginBox').style.display='block';$('appShell').style.display='none';return}
-  $('userBadge').textContent=currentUser.email;
-  $('loginBox').style.display='none';$('appShell').style.display='block';
-  await loadCloud();
-  if(S.T||S.mdays){const ds=dates(),y=ds.length?fyStart(ds[ds.length-1]):2082,f=ensureK(y);if(S.mdays)f.mdays=S.mdays;if(S.T)f.T=S.T;delete S.T;delete S.mdays;await save()}
-  $('ofcName').textContent=S.office?'· '+S.office:'';
-  go(cur);
+  if(!currentUser){$('loginBox').style.display='block';$('appShell').style.display='none';$('noAccess').style.display='none';return}
+  const msg=await resolveAccess();
+  if(msg){noAccess(msg);return}
+  $('loginBox').style.display='none';$('noAccess').style.display='none';$('appShell').style.display='block';
+  if(currentOffice){
+    await openOffice();
+    if(S.T||S.mdays){const ds=dates(),y=ds.length?fyStart(ds[ds.length-1]):2082,f=ensureK(y);if(S.mdays)f.mdays=S.mdays;if(S.T)f.T=S.T;delete S.T;delete S.mdays;if(canEdit)await save()}
+    $('ofcName').textContent=S.office?'· '+S.office:'· '+currentOffice.name;
+    go(cur);
+  }else{
+    applyAccessUI();go('admin');
+  }
 }
+
+/* Admin: switch which office is being viewed */
+$('ofSwitch').onchange=async()=>{const o=(window._offices||[]).find(x=>x.id===$('ofSwitch').value);if(!o)return;currentOffice=o;localStorage.setItem('admin_office',o.id);await openOffice();go(cur==='admin'?'dash':cur)};
 
 bootApp();
 </script></body></html>
